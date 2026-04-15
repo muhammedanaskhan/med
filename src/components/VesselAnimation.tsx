@@ -8,7 +8,7 @@ interface VesselAnimationProps {
 }
 
 export default function VesselAnimation({
-  canvasHeight = 640,
+  canvasHeight,
   compact = false,
 }: VesselAnimationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -16,7 +16,6 @@ export default function VesselAnimation({
   const timeRef = useRef(0);
   const heartImgRef = useRef<HTMLImageElement | null>(null);
 
-  // Race cycle state
   const cycleRef = useRef({
     stiffProgress: 0,
     elasticProgress: 0,
@@ -32,12 +31,11 @@ export default function VesselAnimation({
   useEffect(() => {
     const img = new Image();
     img.src = "/heart-diagram.svg";
-    img.onload = () => { heartImgRef.current = img; };
+    img.onload = () => {
+      heartImgRef.current = img;
+    };
   }, []);
 
-  /* ------------------------------------------------------------------ */
-  /*  Draw 3D vessel tube                                                */
-  /* ------------------------------------------------------------------ */
   const drawVessel3D = useCallback(
     (
       ctx: CanvasRenderingContext2D,
@@ -46,9 +44,10 @@ export default function VesselAnimation({
       length: number,
       baseInnerR: number,
       wallThick: number,
-      time: number,
+      _time: number,
       isStiff: boolean,
-      arrowProgress: number // 0→1, leading edge of the arrow wave
+      arrowProgress: number,
+      scale: number
     ) => {
       const numPts = 300;
       const dx = length / numPts;
@@ -56,7 +55,6 @@ export default function VesselAnimation({
       const getInnerR = (i: number): number => {
         if (isStiff) return baseInnerR;
         const progress = i / numPts;
-        // Static zig-zag — pronounced waves for visible path difference
         const wave = Math.sin(progress * Math.PI * 5);
         return baseInnerR + wave * baseInnerR * 0.75;
       };
@@ -120,7 +118,7 @@ export default function VesselAnimation({
       ctx.beginPath();
       tracePath(topOuter);
       ctx.strokeStyle = "rgba(255, 200, 200, 0.3)";
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.2 * scale;
       ctx.stroke();
 
       // Bottom wall
@@ -143,21 +141,21 @@ export default function VesselAnimation({
       ctx.beginPath();
       tracePath(botOuter);
       ctx.strokeStyle = "rgba(255, 200, 200, 0.25)";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = scale;
       ctx.stroke();
 
       // Lumen edges
       ctx.beginPath(); tracePath(topInner);
-      ctx.strokeStyle = "rgba(255, 160, 160, 0.2)"; ctx.lineWidth = 0.8; ctx.stroke();
+      ctx.strokeStyle = "rgba(255, 160, 160, 0.2)"; ctx.lineWidth = 0.8 * scale; ctx.stroke();
       ctx.beginPath(); tracePath(botInner);
-      ctx.strokeStyle = "rgba(255, 160, 160, 0.2)"; ctx.lineWidth = 0.8; ctx.stroke();
+      ctx.strokeStyle = "rgba(255, 160, 160, 0.2)"; ctx.lineWidth = 0.8 * scale; ctx.stroke();
 
       // Left end-cap
       {
         const ir0 = getInnerR(0);
         const or0 = ir0 + wallThick;
         ctx.beginPath();
-        ctx.ellipse(x1, centerY, 4, or0, 0, 0, Math.PI * 2);
+        ctx.ellipse(x1, centerY, 4 * scale, or0, 0, 0, Math.PI * 2);
         const cg = ctx.createRadialGradient(x1, centerY, 0, x1, centerY, or0);
         cg.addColorStop(0, "#4a0505");
         cg.addColorStop(0.5, "#7a1515");
@@ -166,16 +164,13 @@ export default function VesselAnimation({
         ctx.fill();
       }
 
-      // ══════════════════════════════════════════════════════════
-      // PROPER ARROW traveling along the TOP vessel wall edge
-      // ══════════════════════════════════════════════════════════
+      // Arrow traveling along the top vessel wall
       if (arrowProgress > 0.01) {
-        const arrowLen = 80; // total arrow length in pixels
-        const headLen = 18;
-        const headW = 10;
-        const shaftW = 3;
+        const arrowLen = 80 * scale;
+        const headLen = 18 * scale;
+        const headW = 10 * scale;
+        const shaftW = 3 * scale;
 
-        // Sample points along the top outer wall for the arrow path
         const sampleCount = 200;
         const wallPts: [number, number][] = [];
         for (let s = 0; s <= sampleCount; s++) {
@@ -184,10 +179,9 @@ export default function VesselAnimation({
           const seg = Math.max(0, Math.min(Math.floor(frac * numPts), numPts));
           const ir = getInnerR(seg);
           const or_ = ir + wallThick;
-          wallPts.push([sx, centerY - or_ - 5]);
+          wallPts.push([sx, centerY - or_ - 5 * scale]);
         }
 
-        // Cumulative arc lengths
         const cumArc: number[] = [0];
         for (let i = 1; i < wallPts.length; i++) {
           const ddx = wallPts[i][0] - wallPts[i - 1][0];
@@ -196,11 +190,9 @@ export default function VesselAnimation({
         }
         const totalArc = cumArc[cumArc.length - 1];
 
-        // Arrow tip position (based on progress)
         const tipArc = arrowProgress * totalArc;
         const tailArc = Math.max(0, tipArc - arrowLen);
 
-        // Helper: get position + direction at arc distance
         const getAtArc = (targetArc: number): { x: number; y: number; angle: number } => {
           for (let i = 1; i < cumArc.length; i++) {
             if (cumArc[i] >= targetArc) {
@@ -226,7 +218,6 @@ export default function VesselAnimation({
         ctx.save();
         ctx.globalAlpha = 0.9;
 
-        // Draw shaft as a thick line following the wall contour
         ctx.beginPath();
         const shaftSteps = 30;
         for (let s = 0; s <= shaftSteps; s++) {
@@ -244,13 +235,12 @@ export default function VesselAnimation({
         ctx.lineCap = "round";
         ctx.stroke();
 
-        // Draw arrowhead at tip
         const angle = tip.angle;
         ctx.translate(tip.x, tip.y);
         ctx.rotate(angle);
 
         ctx.beginPath();
-        ctx.moveTo(0, 0); // tip
+        ctx.moveTo(0, 0);
         ctx.lineTo(-headLen, -headW);
         ctx.lineTo(-headLen * 0.6, 0);
         ctx.lineTo(-headLen, headW);
@@ -260,23 +250,23 @@ export default function VesselAnimation({
 
         ctx.restore();
 
-        // Glow at the arrowhead
         ctx.save();
-        const glow = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, 16);
+        const glowR = 16 * scale;
+        const glow = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, glowR);
         glow.addColorStop(0, "rgba(255,255,255,0.4)");
         glow.addColorStop(0.5, "rgba(255,255,255,0.1)");
         glow.addColorStop(1, "transparent");
         ctx.fillStyle = glow;
         ctx.beginPath();
-        ctx.arc(tip.x, tip.y, 16, 0, Math.PI * 2);
+        ctx.arc(tip.x, tip.y, glowR, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }
 
-      // ─── Stiff: tapered end + reflection ───
+      // Stiff: tapered end + reflection label
       if (isStiff) {
         const endX = x1 + length;
-        const taperLen = 35;
+        const taperLen = 35 * scale;
         const ir = baseInnerR;
         const or_ = ir + wallThick;
 
@@ -308,15 +298,17 @@ export default function VesselAnimation({
         ctx.closePath();
         ctx.fillStyle = "#4a0505"; ctx.fill();
 
-        ctx.font = "italic 13px 'Inter', sans-serif";
-        ctx.fillStyle = "#e88080";
-        ctx.textAlign = "left";
-        ctx.fillText("Early wave", endX + taperLen + 12, centerY - 12);
-        ctx.fillText("reflection", endX + taperLen + 12, centerY + 4);
+        if (scale > 0.55) {
+          ctx.font = `italic ${Math.round(13 * scale)}px 'Inter', sans-serif`;
+          ctx.fillStyle = "#e88080";
+          ctx.textAlign = "left";
+          ctx.fillText("Early wave", endX + taperLen + 8 * scale, centerY - 8 * scale);
+          ctx.fillText("reflection", endX + taperLen + 8 * scale, centerY + 8 * scale);
+        }
       }
 
-      // ─── Elastic: expansion/compression arrows ───
-      if (!isStiff) {
+      // Elastic: expansion/compression arrows (skip on very small screens)
+      if (!isStiff && scale > 0.45) {
         for (let n = 0; n < 3; n++) {
           const progress = (n + 0.5) / 3;
           const i = Math.floor(progress * numPts);
@@ -325,11 +317,11 @@ export default function VesselAnimation({
           const or_ = ir + wallThick;
 
           if (ir > baseInnerR * 1.2) {
-            drawExpansionArrow(ctx, x, centerY - or_ - 6, true);
-            drawExpansionArrow(ctx, x, centerY + or_ + 6, false);
+            drawExpansionArrow(ctx, x, centerY - or_ - 6 * scale, true, scale);
+            drawExpansionArrow(ctx, x, centerY + or_ + 6 * scale, false, scale);
           } else if (ir < baseInnerR * 0.8) {
-            drawCompressionArrow(ctx, x, centerY - or_ - 2, false);
-            drawCompressionArrow(ctx, x, centerY + or_ + 2, true);
+            drawCompressionArrow(ctx, x, centerY - or_ - 2 * scale, false, scale);
+            drawCompressionArrow(ctx, x, centerY + or_ + 2 * scale, true, scale);
           }
         }
       }
@@ -338,47 +330,47 @@ export default function VesselAnimation({
   );
 
   function drawExpansionArrow(
-    ctx: CanvasRenderingContext2D, x: number, y: number, pointsUp: boolean
+    ctx: CanvasRenderingContext2D, x: number, y: number, pointsUp: boolean, s: number
   ) {
     const dir = pointsUp ? -1 : 1;
+    const r = 16 * s;
     ctx.save();
-    ctx.strokeStyle = "#5dade2"; ctx.fillStyle = "#5dade2"; ctx.lineWidth = 2;
+    ctx.strokeStyle = "#5dade2"; ctx.fillStyle = "#5dade2"; ctx.lineWidth = 2 * s;
     ctx.beginPath();
-    ctx.arc(x, y + dir * 3, 16,
+    ctx.arc(x, y + dir * 3 * s, r,
       pointsUp ? Math.PI * 0.15 : -Math.PI * 0.85,
       pointsUp ? Math.PI * 0.85 : -Math.PI * 0.15
     );
     ctx.stroke();
-    const r = 16;
     const a1 = pointsUp ? Math.PI * 0.15 : -Math.PI * 0.85;
     const a2 = pointsUp ? Math.PI * 0.85 : -Math.PI * 0.15;
-    const lx = x + Math.cos(a1) * r, ly = y + dir * 3 + Math.sin(a1) * r;
+    const lx = x + Math.cos(a1) * r, ly = y + dir * 3 * s + Math.sin(a1) * r;
     ctx.beginPath(); ctx.moveTo(lx, ly);
-    ctx.lineTo(lx + (pointsUp ? -4 : 4), ly + dir * 5);
-    ctx.lineTo(lx + (pointsUp ? 5 : -3), ly + dir * 1);
+    ctx.lineTo(lx + (pointsUp ? -4 : 4) * s, ly + dir * 5 * s);
+    ctx.lineTo(lx + (pointsUp ? 5 : -3) * s, ly + dir * 1 * s);
     ctx.closePath(); ctx.fill();
-    const rx = x + Math.cos(a2) * r, ry = y + dir * 3 + Math.sin(a2) * r;
+    const rx = x + Math.cos(a2) * r, ry = y + dir * 3 * s + Math.sin(a2) * r;
     ctx.beginPath(); ctx.moveTo(rx, ry);
-    ctx.lineTo(rx + (pointsUp ? 4 : -4), ry + dir * 5);
-    ctx.lineTo(rx + (pointsUp ? -5 : 3), ry + dir * 1);
+    ctx.lineTo(rx + (pointsUp ? 4 : -4) * s, ry + dir * 5 * s);
+    ctx.lineTo(rx + (pointsUp ? -5 : 3) * s, ry + dir * 1 * s);
     ctx.closePath(); ctx.fill();
     ctx.restore();
   }
 
   function drawCompressionArrow(
-    ctx: CanvasRenderingContext2D, x: number, y: number, pointsUp: boolean
+    ctx: CanvasRenderingContext2D, x: number, y: number, pointsUp: boolean, s: number
   ) {
     const dir = pointsUp ? -1 : 1;
     ctx.save();
     ctx.strokeStyle = "rgba(93, 173, 226, 0.7)";
     ctx.fillStyle = "rgba(93, 173, 226, 0.7)";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 * s;
     ctx.beginPath();
-    ctx.moveTo(x - 8, y); ctx.lineTo(x, y + dir * 8); ctx.lineTo(x + 8, y);
+    ctx.moveTo(x - 8 * s, y); ctx.lineTo(x, y + dir * 8 * s); ctx.lineTo(x + 8 * s, y);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(x, y + dir * 8);
-    ctx.lineTo(x - 3, y + dir * 3); ctx.lineTo(x + 3, y + dir * 3);
+    ctx.moveTo(x, y + dir * 8 * s);
+    ctx.lineTo(x - 3 * s, y + dir * 3 * s); ctx.lineTo(x + 3 * s, y + dir * 3 * s);
     ctx.closePath(); ctx.fill();
     ctx.restore();
   }
@@ -403,8 +395,6 @@ export default function VesselAnimation({
     window.addEventListener("resize", resize);
 
     const dt = 0.016;
-    // Elastic vessel: longer wavy path → takes 5 seconds
-    // Stiff vessel: straight path → finishes at 3 seconds
     const STIFF_DURATION = 3.0;
     const ELASTIC_DURATION = 5.0;
     const PAUSE_AFTER_DONE = 1.5;
@@ -418,68 +408,60 @@ export default function VesselAnimation({
       const t = timeRef.current;
       const c = cycleRef.current;
 
-      // Layout
-      const heartImgSize = 160;
-      const heartAreaW = heartImgSize + 20;
-      const vesselStartX = heartAreaW + 10;
-      const vesselLen = w - vesselStartX - 110;
+      // Scale factor: 1.0 at 900px wide, proportional otherwise
+      const scale = Math.max(0.35, Math.min(1, w / 900));
+      const isMobile = w < 500;
+
+      // Layout — all derived from scale
+      const heartImgSize = Math.round(160 * scale);
+      const heartAreaW = isMobile ? 0 : heartImgSize + 20 * scale;
+      const vesselStartX = isMobile ? 12 : heartAreaW + 10 * scale;
+      const vesselEndPad = isMobile ? 90 : 110 * scale;
+      const vesselLen = w - vesselStartX - vesselEndPad;
+      const baseR = Math.round(20 * scale);
+      const wallT = Math.round(14 * scale);
       const stiffY = h * 0.28;
       const elasticY = h * 0.72;
 
       // ─── Update race ───
       if (!c.paused) {
         c.cycleTimer += dt;
-
         if (!c.stiffDone) {
           c.stiffProgress += dt / STIFF_DURATION;
           c.stiffTime = c.cycleTimer;
-          if (c.stiffProgress >= 1) {
-            c.stiffProgress = 1;
-            c.stiffDone = true;
-          }
+          if (c.stiffProgress >= 1) { c.stiffProgress = 1; c.stiffDone = true; }
         }
-
         if (!c.elasticDone) {
           c.elasticProgress += dt / ELASTIC_DURATION;
           c.elasticTime = c.cycleTimer;
-          if (c.elasticProgress >= 1) {
-            c.elasticProgress = 1;
-            c.elasticDone = true;
-          }
+          if (c.elasticProgress >= 1) { c.elasticProgress = 1; c.elasticDone = true; }
         }
-
-        if (c.stiffDone && c.elasticDone) {
-          c.paused = true;
-          c.pauseTimer = 0;
-        }
+        if (c.stiffDone && c.elasticDone) { c.paused = true; c.pauseTimer = 0; }
       } else {
         c.pauseTimer += dt;
         if (c.pauseTimer >= PAUSE_AFTER_DONE) {
-          c.stiffProgress = 0;
-          c.elasticProgress = 0;
-          c.stiffDone = false;
-          c.elasticDone = false;
-          c.stiffTime = 0;
-          c.elasticTime = 0;
-          c.cycleTimer = 0;
-          c.paused = false;
-          c.pauseTimer = 0;
+          c.stiffProgress = 0; c.elasticProgress = 0;
+          c.stiffDone = false; c.elasticDone = false;
+          c.stiffTime = 0; c.elasticTime = 0;
+          c.cycleTimer = 0; c.paused = false; c.pauseTimer = 0;
         }
       }
 
       // ──── STIFF VESSEL ────
-      ctx.font = "bold 18px 'Inter', sans-serif";
+      const titleSize = Math.round(18 * scale);
+      const stiffTitleOffset = isMobile ? baseR + wallT + 14 : 62 * scale;
+      ctx.font = `bold ${titleSize}px 'Inter', sans-serif`;
       ctx.fillStyle = "#e88080";
       ctx.textAlign = "center";
-      ctx.fillText("Stiff Vessel (↓ Compliance)", vesselStartX + vesselLen / 2, stiffY - 62);
+      ctx.fillText("Stiff Vessel (↓ Compliance)", vesselStartX + vesselLen / 2, stiffY - stiffTitleOffset);
 
-      // Heart image
-      if (heartImgRef.current) {
+      // Heart image (hidden on mobile)
+      if (!isMobile && heartImgRef.current) {
         const img = heartImgRef.current;
         const imgAspect = img.width / img.height;
         const drawH = heartImgSize;
         const drawW = drawH * imgAspect;
-        const imgX = 10;
+        const imgX = 10 * scale;
         const imgY = stiffY - drawH / 2;
         ctx.drawImage(img, imgX, imgY, drawW, drawH);
 
@@ -488,12 +470,12 @@ export default function VesselAnimation({
         ctx.lineTo(vesselStartX, stiffY);
         const cg = ctx.createLinearGradient(imgX + drawW, stiffY, vesselStartX, stiffY);
         cg.addColorStop(0, "#d08080"); cg.addColorStop(1, "#8b2020");
-        ctx.strokeStyle = cg; ctx.lineWidth = 5; ctx.stroke();
+        ctx.strokeStyle = cg; ctx.lineWidth = 5 * scale; ctx.stroke();
       }
 
-      drawVessel3D(ctx, vesselStartX, stiffY, vesselLen, 20, 14, t, true, c.stiffProgress);
+      drawVessel3D(ctx, vesselStartX, stiffY, vesselLen, baseR, wallT, t, true, c.stiffProgress, scale);
 
-      // ── Divider ──
+      // Divider
       ctx.beginPath();
       ctx.moveTo(20, h * 0.5);
       ctx.lineTo(w - 20, h * 0.5);
@@ -502,94 +484,119 @@ export default function VesselAnimation({
       ctx.stroke();
 
       // ──── ELASTIC VESSEL ────
-      ctx.font = "bold 18px 'Inter', sans-serif";
+      const elasticTitleOffset = isMobile
+        ? Math.round(baseR * 1.75) + wallT + 18
+        : 78 * scale;
+      ctx.font = `bold ${titleSize}px 'Inter', sans-serif`;
       ctx.fillStyle = "#5dade2";
       ctx.textAlign = "center";
-      ctx.fillText("Elastic Vessel (↑ Compliance)", vesselStartX + vesselLen / 2, elasticY - 78);
+      ctx.fillText("Elastic Vessel (↑ Compliance)", vesselStartX + vesselLen / 2, elasticY - elasticTitleOffset);
 
-      const barX = vesselStartX - 30;
-      const barH = 56;
-      ctx.fillStyle = "rgba(232,232,240,0.12)";
-      ctx.fillRect(barX - 4, elasticY - barH / 2, 8, barH);
-      ctx.strokeStyle = "rgba(232,232,240,0.2)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(barX - 4, elasticY - barH / 2, 8, barH);
-      ctx.beginPath();
-      ctx.moveTo(barX + 4, elasticY);
-      ctx.lineTo(vesselStartX, elasticY);
-      const cg2 = ctx.createLinearGradient(barX, elasticY, vesselStartX, elasticY);
-      cg2.addColorStop(0, "#d08080"); cg2.addColorStop(1, "#8b2020");
-      ctx.strokeStyle = cg2; ctx.lineWidth = 5; ctx.stroke();
+      if (!isMobile) {
+        const barX = vesselStartX - 30 * scale;
+        const barH = 56 * scale;
+        ctx.fillStyle = "rgba(232,232,240,0.12)";
+        ctx.fillRect(barX - 4, elasticY - barH / 2, 8, barH);
+        ctx.strokeStyle = "rgba(232,232,240,0.2)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX - 4, elasticY - barH / 2, 8, barH);
+        ctx.beginPath();
+        ctx.moveTo(barX + 4, elasticY);
+        ctx.lineTo(vesselStartX, elasticY);
+        const cg2 = ctx.createLinearGradient(barX, elasticY, vesselStartX, elasticY);
+        cg2.addColorStop(0, "#d08080"); cg2.addColorStop(1, "#8b2020");
+        ctx.strokeStyle = cg2; ctx.lineWidth = 5 * scale; ctx.stroke();
+      }
 
-      drawVessel3D(ctx, vesselStartX, elasticY, vesselLen, 20, 14, t, false, c.elasticProgress);
+      drawVessel3D(ctx, vesselStartX, elasticY, vesselLen, baseR, wallT, t, false, c.elasticProgress, scale);
 
-      // ══════════════════════════════════════════════════════════
-      //  TIMERS — drawn BELOW the label chains, outside the diagram
-      // ══════════════════════════════════════════════════════════
+      // ──── TIMERS ────
+      if (!isMobile) {
+        const stiffTimerY = stiffY + 52 * scale;
+        const timerX = vesselStartX + vesselLen + 65 * scale;
+        drawTimer(ctx, timerX, stiffTimerY, c.stiffTime, c.stiffDone, "#e88080", "Stiff", scale);
+        const elasticTimerY = elasticY + 52 * scale;
+        drawTimer(ctx, timerX, elasticTimerY, c.elasticTime, c.elasticDone, "#5dade2", "Elastic", scale);
+      } else {
+        const tSize = 0.6;
+        const timerX = vesselStartX + vesselLen + 45;
+        drawTimer(ctx, timerX, stiffY, c.stiffTime, c.stiffDone, "#e88080", "Stiff", tSize);
+        drawTimer(ctx, timerX, elasticY, c.elasticTime, c.elasticDone, "#5dade2", "Elastic", tSize);
+      }
 
-      // Stiff timer — positioned below stiff vessel labels
-      const stiffTimerY = stiffY + 52;
-      const timerX = vesselStartX + vesselLen + 65;
-      drawTimer(ctx, timerX, stiffTimerY, c.stiffTime, c.stiffDone, "#e88080", "Stiff");
+      // ──── LABEL CHAINS ────
+      if (!isMobile) {
+        const labelFont = Math.round(13 * scale);
+        const subFont = Math.round(11 * scale);
+        const arrowFont = Math.round(16 * scale);
 
-      // Elastic timer — positioned below elastic vessel labels
-      const elasticTimerY = elasticY + 52;
-      drawTimer(ctx, timerX, elasticTimerY, c.elasticTime, c.elasticDone, "#5dade2", "Elastic");
+        // Stiff labels
+        const chainY = stiffY + 56 * scale;
+        ctx.textAlign = "center";
+        ctx.font = `bold ${labelFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "rgba(232,232,240,0.8)";
+        ctx.fillText("↓ Arterial distensibility", vesselStartX + vesselLen * 0.12, chainY);
+        ctx.font = `${subFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "rgba(232,232,240,0.4)";
+        ctx.fillText("(↑ Elastic modulus)", vesselStartX + vesselLen * 0.12, chainY + 16 * scale);
+        ctx.font = `${arrowFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "rgba(232,232,240,0.3)";
+        ctx.fillText("→", vesselStartX + vesselLen * 0.28, chainY);
+        ctx.font = `bold ${labelFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "#e88080";
+        ctx.fillText("Minimal wall", vesselStartX + vesselLen * 0.40, chainY);
+        ctx.fillText("deformation", vesselStartX + vesselLen * 0.40, chainY + 16 * scale);
+        ctx.font = `${arrowFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "rgba(232,232,240,0.3)";
+        ctx.fillText("→", vesselStartX + vesselLen * 0.53, chainY);
+        ctx.font = `${labelFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "rgba(232,232,240,0.7)";
+        ctx.fillText("Faster pressure wave", vesselStartX + vesselLen * 0.68, chainY);
+        ctx.fillText("propagation", vesselStartX + vesselLen * 0.68, chainY + 16 * scale);
+        ctx.font = `bold ${labelFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "#e88080";
+        ctx.fillText("→ ↑ PWV", vesselStartX + vesselLen * 0.82, chainY + 8 * scale);
 
-      // ─── Label chains ───
-      // Stiff labels
-      const chainY = stiffY + 56;
-      ctx.textAlign = "center";
-      ctx.font = "bold 13px 'Inter', sans-serif";
-      ctx.fillStyle = "rgba(232,232,240,0.8)";
-      ctx.fillText("↓ Arterial distensibility", vesselStartX + vesselLen * 0.12, chainY);
-      ctx.font = "11px 'Inter', sans-serif";
-      ctx.fillStyle = "rgba(232,232,240,0.4)";
-      ctx.fillText("(↑ Elastic modulus)", vesselStartX + vesselLen * 0.12, chainY + 16);
-      ctx.font = "16px 'Inter', sans-serif";
-      ctx.fillStyle = "rgba(232,232,240,0.3)";
-      ctx.fillText("→", vesselStartX + vesselLen * 0.28, chainY);
-      ctx.font = "bold 13px 'Inter', sans-serif";
-      ctx.fillStyle = "#e88080";
-      ctx.fillText("Minimal wall", vesselStartX + vesselLen * 0.40, chainY);
-      ctx.fillText("deformation", vesselStartX + vesselLen * 0.40, chainY + 16);
-      ctx.font = "16px 'Inter', sans-serif";
-      ctx.fillStyle = "rgba(232,232,240,0.3)";
-      ctx.fillText("→", vesselStartX + vesselLen * 0.53, chainY);
-      ctx.font = "13px 'Inter', sans-serif";
-      ctx.fillStyle = "rgba(232,232,240,0.7)";
-      ctx.fillText("Faster pressure wave", vesselStartX + vesselLen * 0.68, chainY);
-      ctx.fillText("propagation", vesselStartX + vesselLen * 0.68, chainY + 16);
-      ctx.font = "bold 13px 'Inter', sans-serif";
-      ctx.fillStyle = "#e88080";
-      ctx.fillText("→ ↑ PWV", vesselStartX + vesselLen * 0.82, chainY + 8);
+        // Elastic labels
+        const chainY2 = elasticY + 72 * scale;
+        ctx.font = `bold ${labelFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "rgba(232,232,240,0.8)";
+        ctx.textAlign = "center";
+        ctx.fillText("↑ Arterial distensibility", vesselStartX + vesselLen * 0.12, chainY2);
+        ctx.font = `${subFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "rgba(232,232,240,0.4)";
+        ctx.fillText("(↓ Elastic modulus)", vesselStartX + vesselLen * 0.12, chainY2 + 16 * scale);
+        ctx.font = `${arrowFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "rgba(232,232,240,0.3)";
+        ctx.fillText("→", vesselStartX + vesselLen * 0.28, chainY2);
+        ctx.font = `bold ${labelFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "#5dade2";
+        ctx.fillText("Greater wall", vesselStartX + vesselLen * 0.40, chainY2);
+        ctx.fillText("deformation", vesselStartX + vesselLen * 0.40, chainY2 + 16 * scale);
+        ctx.font = `${arrowFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "rgba(232,232,240,0.3)";
+        ctx.fillText("→", vesselStartX + vesselLen * 0.53, chainY2);
+        ctx.font = `${labelFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "rgba(232,232,240,0.7)";
+        ctx.fillText("Slower pressure wave", vesselStartX + vesselLen * 0.68, chainY2);
+        ctx.fillText("propagation", vesselStartX + vesselLen * 0.68, chainY2 + 16 * scale);
+        ctx.font = `bold ${labelFont}px 'Inter', sans-serif`;
+        ctx.fillStyle = "#5dade2";
+        ctx.fillText("→ ↓ PWV", vesselStartX + vesselLen * 0.82, chainY2 + 8 * scale);
+      } else {
+        const mf = Math.max(8, Math.round(9 * Math.max(scale, 0.7)));
+        const labelGap = baseR + wallT + 14;
+        const chainY = stiffY + labelGap;
+        ctx.textAlign = "center";
+        ctx.font = `bold ${mf}px 'Inter', sans-serif`;
+        ctx.fillStyle = "#e88080";
+        ctx.fillText("↓ Distensibility → Minimal deformation → ↑ PWV", vesselStartX + vesselLen / 2, chainY);
 
-      // Elastic labels
-      const chainY2 = elasticY + 72;
-      ctx.font = "bold 13px 'Inter', sans-serif";
-      ctx.fillStyle = "rgba(232,232,240,0.8)";
-      ctx.textAlign = "center";
-      ctx.fillText("↑ Arterial distensibility", vesselStartX + vesselLen * 0.12, chainY2);
-      ctx.font = "11px 'Inter', sans-serif";
-      ctx.fillStyle = "rgba(232,232,240,0.4)";
-      ctx.fillText("(↓ Elastic modulus)", vesselStartX + vesselLen * 0.12, chainY2 + 16);
-      ctx.font = "16px 'Inter', sans-serif";
-      ctx.fillStyle = "rgba(232,232,240,0.3)";
-      ctx.fillText("→", vesselStartX + vesselLen * 0.28, chainY2);
-      ctx.font = "bold 13px 'Inter', sans-serif";
-      ctx.fillStyle = "#5dade2";
-      ctx.fillText("Greater wall", vesselStartX + vesselLen * 0.40, chainY2);
-      ctx.fillText("deformation", vesselStartX + vesselLen * 0.40, chainY2 + 16);
-      ctx.font = "16px 'Inter', sans-serif";
-      ctx.fillStyle = "rgba(232,232,240,0.3)";
-      ctx.fillText("→", vesselStartX + vesselLen * 0.53, chainY2);
-      ctx.font = "13px 'Inter', sans-serif";
-      ctx.fillStyle = "rgba(232,232,240,0.7)";
-      ctx.fillText("Slower pressure wave", vesselStartX + vesselLen * 0.68, chainY2);
-      ctx.fillText("propagation", vesselStartX + vesselLen * 0.68, chainY2 + 16);
-      ctx.font = "bold 13px 'Inter', sans-serif";
-      ctx.fillStyle = "#5dade2";
-      ctx.fillText("→ ↓ PWV", vesselStartX + vesselLen * 0.82, chainY2 + 8);
+        const elasticMaxR = Math.round(baseR * 1.75) + wallT;
+        const chainY2 = elasticY + elasticMaxR + 14;
+        ctx.fillStyle = "#5dade2";
+        ctx.fillText("↑ Distensibility → Greater deformation → ↓ PWV", vesselStartX + vesselLen / 2, chainY2);
+      }
 
       animRef.current = requestAnimationFrame(animate);
     };
@@ -603,41 +610,39 @@ export default function VesselAnimation({
 
   function drawTimer(
     ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    elapsed: number,
-    done: boolean,
-    color: string,
-    label: string
+    x: number, y: number,
+    elapsed: number, done: boolean,
+    color: string, label: string,
+    s: number
   ) {
     const timeStr = elapsed.toFixed(1) + "s";
-    const pillW = 90;
-    const pillH = 52;
+    const pillW = 90 * s;
+    const pillH = 52 * s;
     const pillX = x - pillW / 2;
     const pillY = y - pillH / 2;
 
     ctx.save();
     ctx.beginPath();
-    ctx.roundRect(pillX, pillY, pillW, pillH, 10);
+    ctx.roundRect(pillX, pillY, pillW, pillH, 10 * s);
     ctx.fillStyle = done ? "rgba(40, 180, 80, 0.12)" : "rgba(255,255,255,0.04)";
     ctx.fill();
     ctx.strokeStyle = done ? "rgba(40, 180, 80, 0.4)" : "rgba(255,255,255,0.08)";
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    ctx.font = "11px 'Inter', sans-serif";
+    ctx.font = `${Math.round(11 * s)}px 'Inter', sans-serif`;
     ctx.fillStyle = "rgba(232,232,240,0.45)";
     ctx.textAlign = "center";
-    ctx.fillText("⏱ " + label, x, pillY + 16);
+    ctx.fillText("⏱ " + label, x, pillY + 16 * s);
 
-    ctx.font = "bold 20px 'Space Grotesk', monospace";
+    ctx.font = `bold ${Math.round(20 * s)}px 'Space Grotesk', monospace`;
     ctx.fillStyle = done ? "#4ade80" : color;
-    ctx.fillText(timeStr, x, pillY + 40);
+    ctx.fillText(timeStr, x, pillY + 40 * s);
 
     if (done) {
-      ctx.font = "14px 'Inter', sans-serif";
+      ctx.font = `${Math.round(14 * s)}px 'Inter', sans-serif`;
       ctx.fillStyle = "#4ade80";
-      ctx.fillText("✓", x + 32, pillY + 40);
+      ctx.fillText("✓", x + 32 * s, pillY + 40 * s);
     }
     ctx.restore();
   }
@@ -646,8 +651,8 @@ export default function VesselAnimation({
     <div className="w-full">
       <canvas
         ref={canvasRef}
-        className="w-full"
-        style={{ height: canvasHeight, display: "block" }}
+        className="w-full vessel-canvas"
+        style={{ height: canvasHeight ?? undefined, display: "block" }}
       />
       {!compact && (
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">

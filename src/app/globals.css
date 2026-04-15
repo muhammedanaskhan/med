@@ -64,3 +64,28 @@ body {
   0%, 100% { box-shadow: 0 0 4px rgba(230, 57, 70, 0.3); }
   50% { box-shadow: 0 0 12px rgba(230, 57, 70, 0.6); }
 }
+
+/* ===== VESSEL CANVAS — responsive height ===== */
+
+.vessel-canvas {
+  height: calc(100vh - 120px);
+  max-height: 640px;
+}
+
+@media (max-width: 767px) {
+  .vessel-canvas {
+    height: calc(100vh - 100px);
+    max-height: 480px;
+  }
+}
+
+/* ===== SCROLLABLE SLIDES ===== */
+
+.slide-scroll {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.slide-scroll::-webkit-scrollbar {
+  display: none;
+}
