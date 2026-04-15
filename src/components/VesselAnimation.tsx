@@ -2,7 +2,15 @@
 
 import { useEffect, useRef, useCallback } from "react";
 
-export default function VesselAnimation() {
+interface VesselAnimationProps {
+  canvasHeight?: number;
+  compact?: boolean;
+}
+
+export default function VesselAnimation({
+  canvasHeight = 640,
+  compact = false,
+}: VesselAnimationProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const timeRef = useRef(0);
@@ -319,17 +327,9 @@ export default function VesselAnimation() {
           if (ir > baseInnerR * 1.2) {
             drawExpansionArrow(ctx, x, centerY - or_ - 6, true);
             drawExpansionArrow(ctx, x, centerY + or_ + 6, false);
-            ctx.font = "bold 12px 'Inter', sans-serif";
-            ctx.fillStyle = "#5dade2";
-            ctx.textAlign = "center";
-            ctx.fillText("Wall expansion", x, centerY - or_ - 28);
           } else if (ir < baseInnerR * 0.8) {
             drawCompressionArrow(ctx, x, centerY - or_ - 2, false);
             drawCompressionArrow(ctx, x, centerY + or_ + 2, true);
-            ctx.font = "11px 'Inter', sans-serif";
-            ctx.fillStyle = "#5dade2";
-            ctx.textAlign = "center";
-            ctx.fillText("Wall compression", x, centerY + or_ + 22);
           }
         }
       }
@@ -647,32 +647,34 @@ export default function VesselAnimation() {
       <canvas
         ref={canvasRef}
         className="w-full"
-        style={{ height: 640, display: "block" }}
+        style={{ height: canvasHeight, display: "block" }}
       />
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-4 rounded-xl border border-[rgba(230,57,70,0.2)] bg-[rgba(230,57,70,0.03)]">
-          <h4 className="font-semibold text-[#e88080] text-sm mb-2 flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-[#e88080] inline-block" />
-            Stiff Vessel — ↓ Compliance
-          </h4>
-          <p className="text-xs text-[rgba(232,232,240,0.55)] leading-relaxed">
-            Rigid walls → pulse wave propagates faster, arrives sooner.
-            Watch the arrow: same distance, less time. Higher PWV = faster
-            arrival = increased cardiac afterload.
-          </p>
+      {!compact && (
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 rounded-xl border border-[rgba(230,57,70,0.2)] bg-[rgba(230,57,70,0.03)]">
+            <h4 className="font-semibold text-[#e88080] text-sm mb-2 flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-[#e88080] inline-block" />
+              Stiff Vessel — ↓ Compliance
+            </h4>
+            <p className="text-xs text-[rgba(232,232,240,0.55)] leading-relaxed">
+              Rigid walls → pulse wave propagates faster, arrives sooner.
+              Watch the arrow: same distance, less time. Higher PWV = faster
+              arrival = increased cardiac afterload.
+            </p>
+          </div>
+          <div className="p-4 rounded-xl border border-[rgba(93,173,226,0.2)] bg-[rgba(93,173,226,0.03)]">
+            <h4 className="font-semibold text-[#5dade2] text-sm mb-2 flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-[#5dade2] inline-block" />
+              Elastic Vessel — ↑ Compliance
+            </h4>
+            <p className="text-xs text-[rgba(232,232,240,0.55)] leading-relaxed">
+              Flexible walls absorb energy → pulse wave travels slower.
+              The Windkessel effect buffers each pulse. Lower PWV =
+              healthier ventricular–arterial coupling.
+            </p>
+          </div>
         </div>
-        <div className="p-4 rounded-xl border border-[rgba(93,173,226,0.2)] bg-[rgba(93,173,226,0.03)]">
-          <h4 className="font-semibold text-[#5dade2] text-sm mb-2 flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-[#5dade2] inline-block" />
-            Elastic Vessel — ↑ Compliance
-          </h4>
-          <p className="text-xs text-[rgba(232,232,240,0.55)] leading-relaxed">
-            Flexible walls absorb energy → pulse wave travels slower.
-            The Windkessel effect buffers each pulse. Lower PWV =
-            healthier ventricular–arterial coupling.
-          </p>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

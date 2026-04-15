@@ -1,426 +1,674 @@
 "use client";
 
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import dynamic from "next/dynamic";
-import ScrollReveal from "@/components/ScrollReveal";
-import Navbar from "@/components/Navbar";
+import { motion, AnimatePresence } from "framer-motion";
 
-// Dynamic imports for heavy client components
 const ECGLine = dynamic(() => import("@/components/ECGLine"), { ssr: false });
-const VesselAnimation = dynamic(() => import("@/components/VesselAnimation"), {
-  ssr: false,
-});
-const EvidenceTable = dynamic(() => import("@/components/EvidenceTable"), {
-  ssr: false,
-});
-const ConceptualFlowchart = dynamic(
-  () => import("@/components/ConceptualFlowchart"),
-  { ssr: false }
-);
-const MethodsFlow = dynamic(() => import("@/components/MethodsFlow"), {
-  ssr: false,
-});
-const ConclusionsAccordion = dynamic(
-  () => import("@/components/ConclusionsAccordion"),
+const VesselAnimation = dynamic(
+  () => import("@/components/VesselAnimation"),
   { ssr: false }
 );
 
-const authors = [
-  { name: "Oren Nedjar, B.S.", sup: "1" },
-  { name: "Zaneh Kahook, B.S.", sup: "1" },
-  { name: "Syed Maaz Shah, B.S.", sup: "2" },
-  { name: "Christos G. Mihos, D.O.", sup: "3" },
-  { name: "Marc Kesselman, D.O.", sup: "1" },
+const SLIDES = [
+  { id: "cover", label: "Cover" },
+  { id: "background", label: "Background" },
+  { id: "vessel", label: "Vessel Dynamics" },
+  { id: "evidence", label: "Evidence" },
+  { id: "conclusions", label: "Conclusions" },
 ];
 
-const institutions = [
-  {
-    sup: "1",
-    text: "Nova Southeastern University Dr. Kiran C. Patel College of Osteopathic Medicine",
-  },
-  {
-    sup: "2",
-    text: "Kansas City College of Osteopathic Medicine",
-  },
-  {
-    sup: "3",
-    text: "Echocardiography & Non-Invasive Cardiovascular Laboratory, Division of Cardiology, Mount Sinai Medical Center, Miami Beach, FL",
-  },
+const evidenceRows = [
+  { context: "Incident AF", assoc: "Mixed", meaning: "Limited screening value", color: "#a8dadc" },
+  { context: "Established AF", assoc: "Consistent ↑ PWV", meaning: "Marker of disease severity", color: "#e63946" },
+  { context: "Post-operative AF", assoc: "Strong association", meaning: "Perioperative risk marker", color: "#f4a261" },
+  { context: "Prognosis", assoc: "Higher PWV → worse outcomes", meaning: "Risk stratification", color: "#2a9d8f" },
+  { context: "Recurrence / Burden", assoc: "Context dependent", meaning: "Adjunct marker in select patients", color: "#9b5de5" },
 ];
 
-const keyTakeaways = [
+const conclusionSections = [
   {
-    stat: "50M+",
-    label: "People affected by AF worldwide",
+    title: "Clinical Significance",
     color: "#e63946",
+    points: [
+      "Elevated PWV is consistently associated with AF, particularly in established disease or high cardiovascular risk.",
+      "Supports a mechanistic link between arterial stiffness, impaired ventricular–arterial coupling, and left atrial remodeling.",
+      "Central PWV demonstrates stronger associations than peripheral indices.",
+      "May reflect early atrial abnormalities preceding clinically overt AF.",
+    ],
   },
   {
-    stat: "PWV",
-    label: "Gold-standard noninvasive measure of arterial stiffness",
+    title: "Clinical Interpretation",
     color: "#457b9d",
+    points: [
+      "PWV is more informative as a prognostic marker than a predictor of incident AF.",
+      "Strongest associations in established AF, POAF, and high cardiovascular risk populations.",
+      "Incident AF relationship attenuated after adjustment for age, BP, and comorbidities.",
+      "Evidence suggests a bidirectional relationship between arterial stiffness and AF.",
+    ],
   },
   {
-    stat: "Central",
-    label: "PWV shows stronger associations than peripheral indices",
+    title: "Clinical Application",
     color: "#2a9d8f",
-  },
-  {
-    stat: "Bi-directional",
-    label: "PWV–AF relationship suggests mutual influence",
-    color: "#9b5de5",
+    points: [
+      "PWV may provide additional risk stratification alongside clinical risk scores and imaging markers.",
+      "Particularly useful in stress-related contexts such as POAF.",
+      "In medically managed AF, elevated PWV may identify patients at higher risk of recurrence.",
+    ],
   },
 ];
+
+const slideVariants = {
+  enter: (dir: number) => ({
+    opacity: 0,
+    y: (dir || 1) > 0 ? 40 : -40,
+  }),
+  center: { opacity: 1, y: 0 },
+  exit: (dir: number) => ({
+    opacity: 0,
+    y: (dir || 1) > 0 ? -40 : 40,
+  }),
+};
 
 export default function Home() {
+  const [current, setCurrent] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [mounted, setMounted] = useState(false);
+  const currentRef = useRef(0);
+  const cooldownRef = useRef(false);
+  const touchStartRef = useRef(0);
+
+  useEffect(() => setMounted(true), []);
+
+  const navigateTo = useCallback((target: number) => {
+    const clamped = Math.max(0, Math.min(target, SLIDES.length - 1));
+    if (clamped === currentRef.current) return;
+    setDirection(clamped > currentRef.current ? 1 : -1);
+    setCurrent(clamped);
+    currentRef.current = clamped;
+  }, []);
+
+  const navigateDelta = useCallback(
+    (delta: number) => navigateTo(currentRef.current + delta),
+    [navigateTo]
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        e.key === "ArrowRight" ||
+        e.key === "ArrowDown" ||
+        e.key === " "
+      ) {
+        e.preventDefault();
+        navigateDelta(1);
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigateDelta(-1);
+      }
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (cooldownRef.current || Math.abs(e.deltaY) < 25) return;
+      cooldownRef.current = true;
+      navigateDelta(e.deltaY > 0 ? 1 : -1);
+      setTimeout(() => {
+        cooldownRef.current = false;
+      }, 1000);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      touchStartRef.current = e.touches[0].clientY;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      const delta = touchStartRef.current - e.changedTouches[0].clientY;
+      if (Math.abs(delta) > 50) navigateDelta(delta > 0 ? 1 : -1);
+    };
+
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [navigateDelta]);
+
   return (
-    <>
-      <Navbar />
-
-      {/* ===== HERO ===== */}
-      <section className="relative min-h-screen flex items-center justify-center hero-grid overflow-hidden">
-        {/* Radial gradient overlay */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 80% 50% at 50% 40%, rgba(230, 57, 70, 0.06) 0%, transparent 60%), radial-gradient(ellipse 60% 40% at 30% 60%, rgba(69, 123, 157, 0.04) 0%, transparent 50%)",
-          }}
+    <div className="h-screen w-screen overflow-hidden relative bg-[var(--background)]">
+      {/* ── Top progress bar ── */}
+      <div className="fixed top-0 left-0 right-0 h-[2px] z-50 bg-[rgba(255,255,255,0.03)]">
+        <motion.div
+          className="h-full bg-gradient-to-r from-[#e63946] to-[#457b9d]"
+          animate={{ width: `${((current + 1) / SLIDES.length) * 100}%` }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
         />
+      </div>
 
-        <div className="relative z-10 text-center max-w-4xl mx-auto px-6">
-          <ScrollReveal delay={100}>
-            <div className="badge mx-auto mb-6">
-              <span className="pulse-dot" />
-              Scoping Review
-            </div>
-          </ScrollReveal>
+      {/* ── Side dot navigation ── */}
+      <nav className="fixed right-5 top-1/2 -translate-y-1/2 z-50 hidden md:flex flex-col items-end gap-5">
+        {SLIDES.map((slide, i) => (
+          <button
+            key={slide.id}
+            onClick={() => navigateTo(i)}
+            className="group flex items-center gap-3 outline-none"
+          >
+            <span
+              className={`text-[10px] font-medium tracking-[0.12em] uppercase transition-all duration-300 ${
+                current === i
+                  ? "opacity-100 text-[rgba(232,232,240,0.8)]"
+                  : "opacity-0 group-hover:opacity-100 text-[rgba(232,232,240,0.35)]"
+              }`}
+            >
+              {slide.label}
+            </span>
+            <div
+              className={`rounded-full transition-all duration-300 ${
+                current === i
+                  ? "w-3 h-3 bg-[#e63946] shadow-[0_0_10px_rgba(230,57,70,0.4)]"
+                  : "w-[7px] h-[7px] bg-[rgba(232,232,240,0.12)] group-hover:bg-[rgba(232,232,240,0.35)]"
+              }`}
+            />
+          </button>
+        ))}
+      </nav>
 
-          <ScrollReveal delay={200}>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight tracking-tight mb-6">
-              <span className="gradient-text">Pulse Wave Velocity</span>{" "}
-              <br className="hidden md:block" />
-              <span className="text-[rgba(232,232,240,0.95)]">in </span>
-              <span className="gradient-text-blue">Atrial Fibrillation</span>
-            </h1>
-          </ScrollReveal>
+      {/* ── Bottom bar ── */}
+      <div className="fixed bottom-5 left-0 right-0 z-50 flex items-center justify-between px-6">
+        <span className="text-[10px] text-[rgba(232,232,240,0.12)] tracking-[0.15em] font-mono">
+          {String(current + 1).padStart(2, "0")} — {String(SLIDES.length).padStart(2, "0")}
+        </span>
+        <span className="text-[10px] text-[rgba(232,232,240,0.1)] tracking-wider hidden md:block">
+          scroll · arrows · click dots
+        </span>
+      </div>
 
-          <ScrollReveal delay={300}>
-            <p className="text-lg md:text-xl text-[rgba(232,232,240,0.5)] max-w-2xl mx-auto mb-8 leading-relaxed">
-              Clinical Significance and Current Evidence
-            </p>
-          </ScrollReveal>
+      {/* ── Slides ── */}
+      {mounted ? (
+        <AnimatePresence mode="wait" initial={false} custom={direction}>
+          <motion.div
+            key={current}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            className="absolute inset-0"
+          >
+            {current === 0 && <CoverSlide />}
+            {current === 1 && <BackgroundSlide />}
+            {current === 2 && <VesselSlide />}
+            {current === 3 && <EvidenceSlide />}
+            {current === 4 && <ConclusionsSlide />}
+          </motion.div>
+        </AnimatePresence>
+      ) : (
+        <div className="absolute inset-0">
+          <CoverSlide />
+        </div>
+      )}
+    </div>
+  );
+}
 
-          <ScrollReveal delay={400}>
-            <div className="max-w-md mx-auto mb-10">
-              <ECGLine />
-            </div>
-          </ScrollReveal>
+/* ================================================================
+   SLIDE 0 — COVER
+   ================================================================ */
+function CoverSlide() {
+  return (
+    <div className="h-full flex flex-col items-center justify-center px-6 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_50%_45%,rgba(230,57,70,0.05)_0%,transparent_70%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_25%_60%,rgba(69,123,157,0.03)_0%,transparent_50%)]" />
 
-          <ScrollReveal delay={500}>
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-[rgba(232,232,240,0.45)]">
-              {authors.map((author, i) => (
-                <span key={i} className="whitespace-nowrap">
-                  {author.name}
-                  <sup className="text-[#e63946] text-[10px] ml-0.5">
-                    {author.sup}
-                  </sup>
-                  {i < authors.length - 1 && (
-                    <span className="ml-1 text-[rgba(232,232,240,0.2)]">
-                      ·
-                    </span>
-                  )}
-                </span>
-              ))}
-            </div>
-          </ScrollReveal>
+      <div className="relative z-10 text-center max-w-4xl mx-auto">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[rgba(230,57,70,0.07)] border border-[rgba(230,57,70,0.12)] mb-10">
+          <span className="w-[6px] h-[6px] rounded-full bg-[#e63946] pulse-dot-sm" />
+          <span className="text-[10px] font-semibold tracking-[0.18em] uppercase text-[#e63946]">
+            Scoping Review
+          </span>
+        </div>
 
-          <ScrollReveal delay={600}>
-            <div className="mt-4 space-y-1 text-xs text-[rgba(232,232,240,0.3)]">
-              {institutions.map((inst, i) => (
-                <p key={i}>
-                  <sup className="text-[#457b9d]">{inst.sup}</sup> {inst.text}
-                </p>
-              ))}
-            </div>
-          </ScrollReveal>
+        <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold leading-[0.92] tracking-tight mb-4">
+          <span className="gradient-text block">Pulse Wave</span>
+          <span className="gradient-text block">Velocity</span>
+        </h1>
 
-          {/* Scroll indicator */}
-          <ScrollReveal delay={800}>
-            <div className="mt-16 flex flex-col items-center gap-2 text-[rgba(232,232,240,0.2)]">
-              <span className="text-xs uppercase tracking-widest">
-                Scroll to explore
+        <p className="text-2xl sm:text-3xl md:text-4xl font-light text-[rgba(232,232,240,0.85)] mb-2 tracking-tight">
+          in <span className="gradient-text-blue font-bold">Atrial Fibrillation</span>
+        </p>
+
+        <p className="text-base text-[rgba(232,232,240,0.35)] mb-8 tracking-wide">
+          Clinical Significance and Current Evidence
+        </p>
+
+        <div className="max-w-xs mx-auto mb-10 opacity-60">
+          <ECGLine />
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-[12px] text-[rgba(232,232,240,0.4)] mb-3">
+          {["Oren Nedjar, B.S.¹", "Zaneh Kahook, B.S.¹", "Syed Maaz Shah, B.S.²", "Christos G. Mihos, D.O.³", "Marc Kesselman, D.O.¹"].map(
+            (a, i, arr) => (
+              <span key={i}>
+                {a}
+                {i < arr.length - 1 && (
+                  <span className="ml-2 text-[rgba(232,232,240,0.12)]">·</span>
+                )}
               </span>
-              <div className="w-5 h-8 rounded-full border border-[rgba(232,232,240,0.15)] relative">
-                <div
-                  className="w-1 h-2 rounded-full bg-[rgba(232,232,240,0.3)] absolute left-1/2 -translate-x-1/2 top-1.5"
-                  style={{ animation: "float 2s ease-in-out infinite" }}
-                />
-              </div>
+            )
+          )}
+        </div>
+
+        <p className="text-[10px] text-[rgba(232,232,240,0.2)] leading-relaxed max-w-xl mx-auto">
+          ¹ Nova Southeastern University Dr. Kiran C. Patel College of Osteopathic Medicine ·{" "}
+          ² Kansas City College of Osteopathic Medicine ·{" "}
+          ³ Division of Cardiology, Mount Sinai Medical Center, Miami Beach, FL
+        </p>
+
+        <div className="mt-10 flex flex-wrap justify-center gap-3">
+          {[
+            { val: "50M+", desc: "Affected worldwide", color: "#e63946" },
+            { val: "PWV", desc: "Gold-standard measure", color: "#457b9d" },
+            { val: "Central", desc: "Stronger associations", color: "#2a9d8f" },
+            { val: "Bi-directional", desc: "Mutual influence", color: "#9b5de5" },
+          ].map((s, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2.5 px-4 py-2 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)]"
+            >
+              <span className="text-sm font-bold" style={{ color: s.color }}>
+                {s.val}
+              </span>
+              <span className="text-[10px] text-[rgba(232,232,240,0.3)]">{s.desc}</span>
             </div>
-          </ScrollReveal>
+          ))}
         </div>
-      </section>
+      </div>
+    </div>
+  );
+}
 
-      <div className="section-divider" />
+/* ================================================================
+   SLIDE 1 — BACKGROUND & METHODS
+   ================================================================ */
+function BackgroundSlide() {
+  return (
+    <div className="h-full flex items-center px-6 lg:px-14 relative overflow-hidden">
+      <div
+        className="absolute inset-0 opacity-[0.025]"
+        style={{
+          backgroundImage: "radial-gradient(rgba(69,123,157,0.6) 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
+      />
 
-      {/* ===== KEY STATS ===== */}
-      <section className="py-20 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {keyTakeaways.map((stat, i) => (
-              <ScrollReveal key={i} delay={i * 100}>
-                <div className="card-medical p-6 text-center">
-                  <h3
-                    className="text-3xl md:text-4xl font-bold mb-2"
-                    style={{ color: stat.color }}
-                  >
-                    {stat.stat}
-                  </h3>
-                  <p className="text-xs text-[rgba(232,232,240,0.5)] leading-relaxed">
-                    {stat.label}
-                  </p>
-                </div>
-              </ScrollReveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* ===== BACKGROUND ===== */}
-      <section id="background" className="py-24 px-6">
-        <div className="max-w-4xl mx-auto">
-          <ScrollReveal>
-            <div className="badge mb-4">
-              <span className="pulse-dot" />
+      <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
+        {/* ─ Left: Background ─ */}
+        <div>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-1 h-8 rounded-full bg-gradient-to-b from-[#e63946] to-[#457b9d]" />
+            <h2 className="text-2xl md:text-3xl font-bold text-[rgba(232,232,240,0.95)]">
               Background
-            </div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-8 text-[rgba(232,232,240,0.95)]">
-              Why Pulse Wave Velocity Matters
             </h2>
-          </ScrollReveal>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <ScrollReveal delay={100}>
-              <div className="card-medical p-6 h-full">
-                <div className="w-10 h-10 rounded-xl bg-[rgba(230,57,70,0.1)] flex items-center justify-center mb-4 text-lg">
-                  🫀
-                </div>
-                <h3 className="font-semibold text-[#e63946] mb-3">
-                  Atrial Fibrillation
-                </h3>
-                <p className="text-sm text-[rgba(232,232,240,0.6)] leading-relaxed">
-                  Atrial fibrillation (AF) is the most common sustained
-                  arrhythmia worldwide (&gt;50 million people), and is
-                  associated with increased risk of stroke, heart failure, and
-                  mortality.
-                </p>
-              </div>
-            </ScrollReveal>
-
-            <ScrollReveal delay={200}>
-              <div className="card-medical p-6 h-full">
-                <div className="w-10 h-10 rounded-xl bg-[rgba(69,123,157,0.1)] flex items-center justify-center mb-4 text-lg">
-                  🩺
-                </div>
-                <h3 className="font-semibold text-[#457b9d] mb-3">
-                  Arterial Stiffness
-                </h3>
-                <p className="text-sm text-[rgba(232,232,240,0.6)] leading-relaxed">
-                  Arterial stiffness reflects vascular aging and cumulative
-                  cardiovascular risk. Pulse wave velocity (PWV) is the
-                  gold-standard noninvasive measure of arterial stiffness.
-                </p>
-              </div>
-            </ScrollReveal>
-
-            <ScrollReveal delay={300}>
-              <div className="card-medical p-6 md:col-span-2 h-full">
-                <div className="w-10 h-10 rounded-xl bg-[rgba(42,157,143,0.1)] flex items-center justify-center mb-4 text-lg">
-                  ❓
-                </div>
-                <h3 className="font-semibold text-[#2a9d8f] mb-3">
-                  The Knowledge Gap
-                </h3>
-                <p className="text-sm text-[rgba(232,232,240,0.6)] leading-relaxed">
-                  The clinical role of PWV across the spectrum of AF remains
-                  unclear. This scoping review evaluates the clinical
-                  significance of PWV in AF, including its role in prediction,
-                  disease association, risk stratification, prognosis, and
-                  patient management.
-                </p>
-              </div>
-            </ScrollReveal>
           </div>
-        </div>
-      </section>
 
-      <div className="section-divider" />
-
-      {/* ===== VESSEL ANIMATION ===== */}
-      <section id="vessel" className="py-24 px-6">
-        <div className="max-w-5xl mx-auto">
-          <ScrollReveal>
-            <div className="text-center mb-12">
-              <div className="badge mx-auto mb-4">
-                <span className="pulse-dot" />
-                Interactive Diagram
-              </div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4 text-[rgba(232,232,240,0.95)]">
-                Physiological Link Between{" "}
-                <span className="gradient-text">Arterial Stiffness</span> and{" "}
-                <span className="gradient-text-blue">PWV</span>
-              </h2>
-              <p className="text-sm text-[rgba(232,232,240,0.45)] max-w-xl mx-auto">
-                Toggle between vessel types to see how arterial compliance
-                affects pulse wave velocity. Watch the blood flow arrows and
-                wall deformation in real time.
+          <div className="space-y-3">
+            <div className="p-4 rounded-xl bg-[rgba(230,57,70,0.03)] border border-[rgba(230,57,70,0.1)]">
+              <h3 className="font-semibold text-[#e63946] text-sm mb-1.5">Atrial Fibrillation</h3>
+              <p className="text-[12px] text-[rgba(232,232,240,0.5)] leading-relaxed">
+                Most common sustained arrhythmia worldwide (&gt;50 million people), associated with
+                increased risk of stroke, heart failure, and mortality.
               </p>
             </div>
-          </ScrollReveal>
 
-          <VesselAnimation />
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* ===== OBJECTIVE & METHODS ===== */}
-      <section id="methods" className="py-24 px-6">
-        <div className="max-w-5xl mx-auto">
-          <ScrollReveal>
-            <div className="badge mb-4">
-              <span className="pulse-dot" />
-              Objective & Methods
+            <div className="p-4 rounded-xl bg-[rgba(69,123,157,0.03)] border border-[rgba(69,123,157,0.1)]">
+              <h3 className="font-semibold text-[#457b9d] text-sm mb-1.5">Arterial Stiffness & PWV</h3>
+              <p className="text-[12px] text-[rgba(232,232,240,0.5)] leading-relaxed">
+                Arterial stiffness reflects vascular aging and cumulative cardiovascular risk.
+                Pulse wave velocity (PWV) is the gold-standard noninvasive measure.
+              </p>
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-[rgba(232,232,240,0.95)]">
+
+            <div className="p-4 rounded-xl bg-[rgba(42,157,143,0.03)] border border-[rgba(42,157,143,0.1)]">
+              <h3 className="font-semibold text-[#2a9d8f] text-sm mb-1.5">The Knowledge Gap</h3>
+              <p className="text-[12px] text-[rgba(232,232,240,0.5)] leading-relaxed">
+                The clinical role of PWV across the spectrum of AF remains unclear — this scoping
+                review evaluates its significance across prediction, association, risk
+                stratification, and patient management.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ─ Right: Objective + Methods ─ */}
+        <div>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-1 h-8 rounded-full bg-gradient-to-b from-[#457b9d] to-[#2a9d8f]" />
+            <h2 className="text-2xl md:text-3xl font-bold text-[rgba(232,232,240,0.95)]">
               Study Design
             </h2>
-            <p className="text-sm text-[rgba(232,232,240,0.5)] mb-12 max-w-2xl leading-relaxed">
-              To conduct a scoping review evaluating the clinical significance
-              of PWV in AF, including its role in: prediction of incident AF,
-              association with established AF, AF burden and recurrence,
-              post-operative AF risk stratification, clinical outcomes, and
-              clinical utility for risk stratification and patient management.
-            </p>
-          </ScrollReveal>
+          </div>
 
-          <MethodsFlow />
+          <div className="mb-8">
+            <h4 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[rgba(232,232,240,0.3)] mb-3">
+              Objective
+            </h4>
+            <ul className="space-y-1.5">
+              {[
+                "Prediction of incident AF",
+                "Association with established AF",
+                "AF burden, recurrence, and disease progression",
+                "Post-operative AF risk stratification",
+                "Clinical outcomes and prognosis",
+                "Relationship between PWV and cardiovascular risk factors",
+                "Clinical utility for risk stratification and patient management",
+              ].map((item, i) => (
+                <li
+                  key={i}
+                  className="flex items-start gap-2.5 text-[12px] text-[rgba(232,232,240,0.5)]"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#457b9d] mt-[5px] flex-shrink-0" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[rgba(232,232,240,0.3)] mb-4">
+              PRISMA Flow
+            </h4>
+            <div className="flex items-start gap-2">
+              {[
+                { num: "01", title: "Identification", sub: "Database search", color: "#457b9d" },
+                { num: "02", title: "Screening", sub: "Title & abstract", color: "#a8dadc" },
+                { num: "03", title: "Eligibility", sub: "Full-text review", color: "#2a9d8f" },
+                { num: "04", title: "Inclusion", sub: "Final studies", color: "#e63946" },
+              ].map((step, i) => (
+                <Fragment key={i}>
+                  <div
+                    className="flex-1 p-3 rounded-xl text-center"
+                    style={{
+                      background: `${step.color}08`,
+                      border: `1px solid ${step.color}18`,
+                    }}
+                  >
+                    <span
+                      className="text-[11px] font-mono font-bold block"
+                      style={{ color: step.color }}
+                    >
+                      {step.num}
+                    </span>
+                    <span className="text-[11px] font-semibold text-[rgba(232,232,240,0.65)] block mt-1">
+                      {step.title}
+                    </span>
+                    <span className="text-[9px] text-[rgba(232,232,240,0.25)]">{step.sub}</span>
+                  </div>
+                  {i < 3 && (
+                    <span className="text-[rgba(232,232,240,0.1)] text-sm mt-4 flex-shrink-0">→</span>
+                  )}
+                </Fragment>
+              ))}
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
+    </div>
+  );
+}
 
-      <div className="section-divider" />
+/* ================================================================
+   SLIDE 2 — VESSEL DYNAMICS
+   ================================================================ */
+function VesselSlide() {
+  return (
+    <div className="h-full flex flex-col items-center justify-center px-6 relative">
+      <div className="text-center mb-3">
+        <p className="text-[10px] font-semibold tracking-[0.18em] uppercase text-[rgba(232,232,240,0.25)] mb-2">
+          Interactive Diagram
+        </p>
+        <h2 className="text-xl md:text-2xl font-bold mb-1">
+          <span className="text-[rgba(232,232,240,0.9)]">Physiological Link: </span>
+          <span className="gradient-text">Arterial Stiffness</span>
+          <span className="text-[rgba(232,232,240,0.9)]"> & </span>
+          <span className="gradient-text-blue">PWV</span>
+        </h2>
+        <p className="text-[12px] text-[rgba(232,232,240,0.3)]">
+          Stiff vessels propagate pressure waves faster — elastic vessels buffer each pulse
+        </p>
+      </div>
 
-      {/* ===== EVIDENCE TABLE ===== */}
-      <section id="evidence" className="py-24 px-6">
-        <div className="max-w-5xl mx-auto">
-          <ScrollReveal>
-            <div className="text-center mb-12">
-              <div className="badge mx-auto mb-4">
-                <span className="pulse-dot" />
+      <div className="w-full max-w-5xl">
+        <VesselAnimation compact />
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   SLIDE 3 — EVIDENCE & INTERPRETATION
+   ================================================================ */
+function EvidenceSlide() {
+  return (
+    <div className="h-full flex items-center px-6 lg:px-14 relative overflow-hidden">
+      <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-8 lg:gap-12">
+        {/* ─ Left: Evidence table ─ */}
+        <div className="lg:col-span-3">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-1 h-8 rounded-full bg-gradient-to-b from-[#e63946] to-[#a8dadc]" />
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold text-[rgba(232,232,240,0.95)]">
+                Evidence Summary
+              </h2>
+              <p className="text-[10px] text-[rgba(232,232,240,0.25)] tracking-wider uppercase">
                 Results & Discussion
-              </div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4 text-[rgba(232,232,240,0.95)]">
-                Summary of Evidence Linking{" "}
-                <span className="gradient-text">PWV</span> and{" "}
-                <span className="gradient-text-blue">AF</span>
-              </h2>
-              <p className="text-sm text-[rgba(232,232,240,0.45)] max-w-xl mx-auto">
-                Click any row to expand and see detailed findings for each
-                clinical context.
               </p>
-            </div>
-          </ScrollReveal>
-
-          <EvidenceTable />
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* ===== CONCEPTUAL INTERPRETATION ===== */}
-      <section id="interpretation" className="py-24 px-6">
-        <div className="max-w-5xl mx-auto">
-          <ScrollReveal>
-            <div className="badge mb-4">
-              <span className="pulse-dot" />
-              Interpretation
-            </div>
-          </ScrollReveal>
-
-          <ConceptualFlowchart />
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* ===== CONCLUSIONS ===== */}
-      <section id="conclusions" className="py-24 px-6">
-        <div className="max-w-4xl mx-auto">
-          <ScrollReveal>
-            <div className="text-center mb-12">
-              <div className="badge mx-auto mb-4">
-                <span className="pulse-dot" />
-                Conclusions & Key Takeaways
-              </div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4 text-[rgba(232,232,240,0.95)]">
-                Clinical Insights
-              </h2>
-              <p className="text-sm text-[rgba(232,232,240,0.45)] max-w-xl mx-auto">
-                Explore the clinical significance, interpretation, and
-                application of PWV findings in AF management.
-              </p>
-            </div>
-          </ScrollReveal>
-
-          <ConclusionsAccordion />
-        </div>
-      </section>
-
-      <div className="section-divider" />
-
-      {/* ===== FOOTER ===== */}
-      <footer className="py-16 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <ScrollReveal>
-            <div className="card-medical p-8 mb-8">
-              <h3 className="text-lg font-semibold text-[rgba(232,232,240,0.8)] mb-2">
-                References
-              </h3>
-              <p className="text-xs text-[rgba(232,232,240,0.4)] leading-relaxed max-w-lg mx-auto">
-                Full reference list available in the original research poster.
-                This interactive presentation was created from a scoping review
-                conducted at Nova Southeastern University and affiliated
-                institutions.
-              </p>
-            </div>
-          </ScrollReveal>
-
-          <div className="flex flex-wrap justify-center gap-6 mb-8">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[rgba(230,57,70,0.1)] flex items-center justify-center">
-                <span className="text-[#e63946] text-xs font-bold">NSU</span>
-              </div>
-              <span className="text-xs text-[rgba(232,232,240,0.4)]">
-                NSU Florida
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[rgba(69,123,157,0.1)] flex items-center justify-center">
-                <span className="text-[#457b9d] text-xs">🏥</span>
-              </div>
-              <span className="text-xs text-[rgba(232,232,240,0.4)]">
-                Cleveland Clinic
-              </span>
             </div>
           </div>
 
-          <p className="text-xs text-[rgba(232,232,240,0.2)]">
-            © {new Date().getFullYear()} · Nedjar, Kahook, Shah, Mihos,
-            Kesselman · Interactive Research Presentation
+          <div className="rounded-xl overflow-hidden border border-[rgba(69,123,157,0.12)]">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-[rgba(29,53,87,0.35)]">
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-[#a8dadc] tracking-[0.1em] uppercase">
+                    AF Context
+                  </th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-[#a8dadc] tracking-[0.1em] uppercase">
+                    PWV Association
+                  </th>
+                  <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-[#a8dadc] tracking-[0.1em] uppercase">
+                    Clinical Meaning
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {evidenceRows.map((row, i) => (
+                  <tr
+                    key={i}
+                    className="border-t border-[rgba(255,255,255,0.03)] hover:bg-[rgba(69,123,157,0.04)] transition-colors"
+                  >
+                    <td className="px-4 py-2.5">
+                      <span className="text-[13px] font-semibold" style={{ color: row.color }}>
+                        {row.context}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-[13px] text-[rgba(232,232,240,0.6)]">
+                      {row.assoc}
+                    </td>
+                    <td className="px-4 py-2.5 text-[13px] text-[rgba(232,232,240,0.45)]">
+                      {row.meaning}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ─ Right: Interpretation ─ */}
+        <div className="lg:col-span-2">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-1 h-8 rounded-full bg-gradient-to-b from-[#9b5de5] to-[#2a9d8f]" />
+            <h2 className="text-xl md:text-2xl font-bold text-[rgba(232,232,240,0.95)]">
+              Interpretation
+            </h2>
+          </div>
+
+          <div className="space-y-2.5">
+            {[
+              {
+                label: "Central vs Peripheral PWV",
+                detail: "Central stiffness better reflects aortic load — more relevant to LA stress and remodeling.",
+                color: "#f4a261",
+              },
+              {
+                label: "Predictive vs Prognostic",
+                detail: "Better as a prognosis marker than a screening tool. Incident AF prediction attenuated after risk adjustment.",
+                color: "#2a9d8f",
+              },
+              {
+                label: "Bidirectional Relationship",
+                detail: "Arterial stiffness may promote AF substrates. Persistent AF may further impair vascular function.",
+                color: "#9b5de5",
+              },
+            ].map((node, i) => (
+              <div
+                key={i}
+                className="p-3.5 rounded-xl"
+                style={{
+                  background: `${node.color}06`,
+                  border: `1px solid ${node.color}15`,
+                }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{ background: node.color }}
+                  />
+                  <span className="text-[12px] font-semibold" style={{ color: node.color }}>
+                    {node.label}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[rgba(232,232,240,0.45)] leading-relaxed pl-4">
+                  {node.detail}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 p-3.5 rounded-xl bg-[rgba(255,255,255,0.015)] border border-[rgba(255,255,255,0.04)]">
+            <h4 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[rgba(232,232,240,0.3)] mb-2">
+              Context-Dependent Utility
+            </h4>
+            <div className="space-y-1.5">
+              {[
+                { text: "Useful for recurrence in medically managed AF", color: "#2a9d8f" },
+                { text: "Not predictive for post-ablation recurrence", color: "#e63946" },
+                { text: "POAF: chronic stiffness may create vulnerable substrate", color: "#f4a261" },
+                { text: "Need standardized AF-specific PWV protocols", color: "#9b5de5" },
+              ].map((item, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <div
+                    className="w-1.5 h-1.5 rounded-full mt-[5px] flex-shrink-0"
+                    style={{ background: item.color }}
+                  />
+                  <span className="text-[11px] text-[rgba(232,232,240,0.4)] leading-relaxed">
+                    {item.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   SLIDE 4 — CONCLUSIONS & CREDITS
+   ================================================================ */
+function ConclusionsSlide() {
+  return (
+    <div className="h-full flex flex-col items-center justify-center px-6 lg:px-14 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_90%,rgba(69,123,157,0.03)_0%,transparent_60%)]" />
+
+      <div className="relative z-10 w-full max-w-7xl mx-auto">
+        <div className="text-center mb-8">
+          <p className="text-[10px] font-semibold tracking-[0.18em] uppercase text-[rgba(232,232,240,0.25)] mb-2">
+            Key Takeaways
+          </p>
+          <h2 className="text-2xl md:text-3xl font-bold text-[rgba(232,232,240,0.95)]">
+            Conclusions
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+          {conclusionSections.map((section, i) => (
+            <div
+              key={i}
+              className="p-5 rounded-xl"
+              style={{
+                background: `${section.color}04`,
+                border: `1px solid ${section.color}12`,
+                borderTop: `3px solid ${section.color}`,
+              }}
+            >
+              <h3
+                className="font-semibold text-[14px] mb-3"
+                style={{ color: section.color }}
+              >
+                {section.title}
+              </h3>
+              <ul className="space-y-2.5">
+                {section.points.map((point, j) => (
+                  <li key={j} className="flex items-start gap-2">
+                    <span
+                      className="w-1 h-1 rounded-full mt-[7px] flex-shrink-0"
+                      style={{ background: section.color }}
+                    />
+                    <span className="text-[11px] text-[rgba(232,232,240,0.5)] leading-relaxed">
+                      {point}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] text-[10px] text-[rgba(232,232,240,0.25)]">
+            Full reference list available in the original research poster
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+            {["Nova Southeastern University", "Cleveland Clinic Florida", "Mount Sinai Medical Center"].map(
+              (inst, i) => (
+                <span
+                  key={i}
+                  className="text-[11px] text-[rgba(232,232,240,0.25)]"
+                >
+                  {inst}
+                  {i < 2 && (
+                    <span className="ml-3 text-[rgba(232,232,240,0.08)]">·</span>
+                  )}
+                </span>
+              )
+            )}
+          </div>
+
+          <p className="text-[10px] text-[rgba(232,232,240,0.12)]">
+            © {new Date().getFullYear()} · Nedjar, Kahook, Shah, Mihos, Kesselman · Interactive
+            Research Presentation
           </p>
         </div>
-      </footer>
-    </>
+      </div>
+    </div>
   );
 }
