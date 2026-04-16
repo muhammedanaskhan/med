@@ -44,23 +44,19 @@ export default function VesselAnimation({
       length: number,
       baseInnerR: number,
       wallThick: number,
+      _time: number,
       isStiff: boolean,
       arrowProgress: number,
-      scale: number,
-      isMobile: boolean
+      scale: number
     ) => {
       const numPts = 300;
       const dx = length / numPts;
 
-      // Simple smooth traveling bulge. Both walls push outward uniformly.
-      const getDeformation = (i: number): number => {
-        if (isStiff) return 0;
-        if (arrowProgress < 0.01) return 0;
-        const frac = i / numPts;
-        const behind = arrowProgress - frac;
-        if (behind < 0 || behind > 0.25) return 0;
-        // Smooth bell: raised cosine over 25% of vessel length
-        return 0.35 * (1 + Math.cos(Math.PI * 2 * (behind / 0.25 - 0.5))) * 0.5;
+      const getInnerR = (i: number): number => {
+        if (isStiff) return baseInnerR;
+        const progress = i / numPts;
+        const wave = Math.sin(progress * Math.PI * 5);
+        return baseInnerR + wave * baseInnerR * 0.75;
       };
 
       const topOuter: [number, number][] = [];
@@ -70,8 +66,7 @@ export default function VesselAnimation({
 
       for (let i = 0; i <= numPts; i++) {
         const x = x1 + i * dx;
-        const deform = getDeformation(i);
-        const ir = baseInnerR + deform * baseInnerR;
+        const ir = getInnerR(i);
         const or_ = ir + wallThick;
         topOuter.push([x, centerY - or_]);
         topInner.push([x, centerY - ir]);
@@ -157,8 +152,7 @@ export default function VesselAnimation({
 
       // Left end-cap
       {
-        const d0 = getDeformation(0);
-        const ir0 = baseInnerR * (1 + d0);
+        const ir0 = getInnerR(0);
         const or0 = ir0 + wallThick;
         ctx.beginPath();
         ctx.ellipse(x1, centerY, 4 * scale, or0, 0, 0, Math.PI * 2);
@@ -183,8 +177,7 @@ export default function VesselAnimation({
           const frac = s / sampleCount;
           const sx = x1 + frac * length;
           const seg = Math.max(0, Math.min(Math.floor(frac * numPts), numPts));
-          const dSeg = getDeformation(seg);
-          const ir = baseInnerR * (1 + dSeg);
+          const ir = getInnerR(seg);
           const or_ = ir + wallThick;
           wallPts.push([sx, centerY - or_ - 5 * scale]);
         }
@@ -270,7 +263,7 @@ export default function VesselAnimation({
         ctx.restore();
       }
 
-      // Stiff: tapered end (no text label)
+      // Stiff: tapered end + reflection label
       if (isStiff) {
         const endX = x1 + length;
         const taperLen = 35 * scale;
@@ -304,40 +297,31 @@ export default function VesselAnimation({
         ctx.lineTo(endX, centerY + ir);
         ctx.closePath();
         ctx.fillStyle = "#4a0505"; ctx.fill();
+
+        if (scale > 0.55) {
+          ctx.font = `italic ${Math.round(13 * scale)}px 'Inter', sans-serif`;
+          ctx.fillStyle = "#e88080";
+          ctx.textAlign = "left";
+          ctx.fillText("Early wave", endX + taperLen + 8 * scale, centerY - 8 * scale);
+          ctx.fillText("reflection", endX + taperLen + 8 * scale, centerY + 8 * scale);
+        }
       }
 
-      // Elastic vessel: "Wall expansion" label at the bulge
-      if (!isStiff && arrowProgress > 0.10 && arrowProgress < 0.92 && !isMobile && scale > 0.45) {
-        const labelSize = Math.round(11 * scale);
-        const peakFrac = Math.max(0, arrowProgress - 0.125);
-        const peakD = getDeformation(Math.floor(peakFrac * numPts));
-        if (peakD > 0.15) {
-          const peakR = baseInnerR + peakD * baseInnerR;
-          const peakOR = peakR + wallThick;
-          const peakX = x1 + peakFrac * length;
-          ctx.save();
-          ctx.font = `bold ${labelSize}px 'Inter', sans-serif`;
-          ctx.fillStyle = "rgba(93, 173, 226, 0.8)";
-          ctx.textAlign = "center";
-          ctx.fillText("Wall expansion", peakX, centerY - peakOR - 10 * scale);
-          drawRadialArrows(ctx, peakX, centerY, peakOR, true, scale);
-          ctx.restore();
-        }
+      // Elastic: expansion/compression arrows (skip on very small screens)
+      if (!isStiff && scale > 0.45) {
+        for (let n = 0; n < 3; n++) {
+          const progress = (n + 0.5) / 3;
+          const i = Math.floor(progress * numPts);
+          const x = x1 + progress * length;
+          const ir = getInnerR(i);
+          const or_ = ir + wallThick;
 
-        // "Wall relaxation" behind the bulge where the vessel has settled back
-        if (arrowProgress > 0.30) {
-          const relaxFrac = Math.max(0, arrowProgress - 0.28);
-          const relaxD = getDeformation(Math.floor(relaxFrac * numPts));
-          if (relaxD < 0.05) {
-            const relaxX = x1 + relaxFrac * length;
-            const relaxOR = baseInnerR + wallThick;
-            ctx.save();
-            ctx.font = `bold ${labelSize}px 'Inter', sans-serif`;
-            ctx.fillStyle = "rgba(93, 173, 226, 0.45)";
-            ctx.textAlign = "center";
-            ctx.fillText("Wall relaxation", relaxX, centerY + relaxOR + 14 * scale);
-            drawRadialArrows(ctx, relaxX, centerY, relaxOR, false, scale);
-            ctx.restore();
+          if (ir > baseInnerR * 1.2) {
+            drawExpansionArrow(ctx, x, centerY - or_ - 6 * scale, true, scale);
+            drawExpansionArrow(ctx, x, centerY + or_ + 6 * scale, false, scale);
+          } else if (ir < baseInnerR * 0.8) {
+            drawCompressionArrow(ctx, x, centerY - or_ - 2 * scale, false, scale);
+            drawCompressionArrow(ctx, x, centerY + or_ + 2 * scale, true, scale);
           }
         }
       }
@@ -345,39 +329,49 @@ export default function VesselAnimation({
     []
   );
 
-  function drawRadialArrows(
-    ctx: CanvasRenderingContext2D,
-    x: number, centerY: number, outerR: number,
-    isExpansion: boolean, s: number
+  function drawExpansionArrow(
+    ctx: CanvasRenderingContext2D, x: number, y: number, pointsUp: boolean, s: number
   ) {
-    const arrowLen = 12 * s;
-    const headSize = 4 * s;
+    const dir = pointsUp ? -1 : 1;
+    const r = 16 * s;
     ctx.save();
-    ctx.strokeStyle = isExpansion ? "rgba(93, 173, 226, 0.7)" : "rgba(93, 173, 226, 0.5)";
-    ctx.fillStyle = ctx.strokeStyle;
+    ctx.strokeStyle = "#5dade2"; ctx.fillStyle = "#5dade2"; ctx.lineWidth = 2 * s;
+    ctx.beginPath();
+    ctx.arc(x, y + dir * 3 * s, r,
+      pointsUp ? Math.PI * 0.15 : -Math.PI * 0.85,
+      pointsUp ? Math.PI * 0.85 : -Math.PI * 0.15
+    );
+    ctx.stroke();
+    const a1 = pointsUp ? Math.PI * 0.15 : -Math.PI * 0.85;
+    const a2 = pointsUp ? Math.PI * 0.85 : -Math.PI * 0.15;
+    const lx = x + Math.cos(a1) * r, ly = y + dir * 3 * s + Math.sin(a1) * r;
+    ctx.beginPath(); ctx.moveTo(lx, ly);
+    ctx.lineTo(lx + (pointsUp ? -4 : 4) * s, ly + dir * 5 * s);
+    ctx.lineTo(lx + (pointsUp ? 5 : -3) * s, ly + dir * 1 * s);
+    ctx.closePath(); ctx.fill();
+    const rx = x + Math.cos(a2) * r, ry = y + dir * 3 * s + Math.sin(a2) * r;
+    ctx.beginPath(); ctx.moveTo(rx, ry);
+    ctx.lineTo(rx + (pointsUp ? 4 : -4) * s, ry + dir * 5 * s);
+    ctx.lineTo(rx + (pointsUp ? -5 : 3) * s, ry + dir * 1 * s);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+
+  function drawCompressionArrow(
+    ctx: CanvasRenderingContext2D, x: number, y: number, pointsUp: boolean, s: number
+  ) {
+    const dir = pointsUp ? -1 : 1;
+    ctx.save();
+    ctx.strokeStyle = "rgba(93, 173, 226, 0.7)";
+    ctx.fillStyle = "rgba(93, 173, 226, 0.7)";
     ctx.lineWidth = 1.5 * s;
-
-    const positions = [
-      { y: centerY - outerR, dir: -1 },
-      { y: centerY + outerR, dir: 1 },
-    ];
-    for (const pos of positions) {
-      const startY = pos.y;
-      const endY = startY + pos.dir * arrowLen * (isExpansion ? 1 : -1);
-
-      ctx.beginPath();
-      ctx.moveTo(x, startY);
-      ctx.lineTo(x, endY);
-      ctx.stroke();
-
-      const tipDir = isExpansion ? pos.dir : -pos.dir;
-      ctx.beginPath();
-      ctx.moveTo(x, endY);
-      ctx.lineTo(x - headSize, endY - tipDir * headSize);
-      ctx.lineTo(x + headSize, endY - tipDir * headSize);
-      ctx.closePath();
-      ctx.fill();
-    }
+    ctx.beginPath();
+    ctx.moveTo(x - 8 * s, y); ctx.lineTo(x, y + dir * 8 * s); ctx.lineTo(x + 8 * s, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x, y + dir * 8 * s);
+    ctx.lineTo(x - 3 * s, y + dir * 3 * s); ctx.lineTo(x + 3 * s, y + dir * 3 * s);
+    ctx.closePath(); ctx.fill();
     ctx.restore();
   }
 
@@ -411,11 +405,14 @@ export default function VesselAnimation({
       ctx.clearRect(0, 0, w, h);
 
       timeRef.current += dt;
+      const t = timeRef.current;
       const c = cycleRef.current;
 
+      // Scale factor: 1.0 at 900px wide, proportional otherwise
       const scale = Math.max(0.35, Math.min(1, w / 900));
       const isMobile = w < 500;
 
+      // Layout — all derived from scale
       const heartImgSize = Math.round(160 * scale);
       const heartAreaW = isMobile ? 0 : heartImgSize + 20 * scale;
       const vesselStartX = isMobile ? 12 : heartAreaW + 10 * scale;
@@ -458,6 +455,7 @@ export default function VesselAnimation({
       ctx.textAlign = "center";
       ctx.fillText("Stiff Vessel (↓ Compliance)", vesselStartX + vesselLen / 2, stiffY - stiffTitleOffset);
 
+      // Heart image (hidden on mobile)
       if (!isMobile && heartImgRef.current) {
         const img = heartImgRef.current;
         const imgAspect = img.width / img.height;
@@ -475,7 +473,7 @@ export default function VesselAnimation({
         ctx.strokeStyle = cg; ctx.lineWidth = 5 * scale; ctx.stroke();
       }
 
-      drawVessel3D(ctx, vesselStartX, stiffY, vesselLen, baseR, wallT, true, c.stiffProgress, scale, isMobile);
+      drawVessel3D(ctx, vesselStartX, stiffY, vesselLen, baseR, wallT, t, true, c.stiffProgress, scale);
 
       // Divider
       ctx.beginPath();
@@ -486,9 +484,8 @@ export default function VesselAnimation({
       ctx.stroke();
 
       // ──── ELASTIC VESSEL ────
-      const maxDeformR = Math.round(baseR * 1.50) + wallT;
       const elasticTitleOffset = isMobile
-        ? maxDeformR + 18
+        ? Math.round(baseR * 1.75) + wallT + 18
         : 78 * scale;
       ctx.font = `bold ${titleSize}px 'Inter', sans-serif`;
       ctx.fillStyle = "#5dade2";
@@ -511,7 +508,7 @@ export default function VesselAnimation({
         ctx.strokeStyle = cg2; ctx.lineWidth = 5 * scale; ctx.stroke();
       }
 
-      drawVessel3D(ctx, vesselStartX, elasticY, vesselLen, baseR, wallT, false, c.elasticProgress, scale, isMobile);
+      drawVessel3D(ctx, vesselStartX, elasticY, vesselLen, baseR, wallT, t, false, c.elasticProgress, scale);
 
       // ──── TIMERS ────
       if (!isMobile) {
@@ -532,7 +529,7 @@ export default function VesselAnimation({
         const labelFont = Math.round(13 * scale);
         const arrowFont = Math.round(16 * scale);
 
-        // Stiff labels (no elastic modulus sub-label)
+        // Stiff labels (latest copy from 0ebb9da)
         const chainY = stiffY + 56 * scale;
         ctx.textAlign = "center";
         ctx.font = `bold ${labelFont}px 'Inter', sans-serif`;
@@ -556,7 +553,7 @@ export default function VesselAnimation({
         ctx.fillStyle = "#e88080";
         ctx.fillText("→ ↑ PWV", vesselStartX + vesselLen * 0.82, chainY + 8 * scale);
 
-        // Elastic labels (no elastic modulus sub-label)
+        // Elastic labels (latest copy from 0ebb9da)
         const chainY2 = elasticY + 72 * scale;
         ctx.font = `bold ${labelFont}px 'Inter', sans-serif`;
         ctx.fillStyle = "rgba(232,232,240,0.8)";
@@ -588,7 +585,7 @@ export default function VesselAnimation({
         ctx.fillStyle = "#e88080";
         ctx.fillText("↓ Distensibility → No energy absorbed → ↑ PWV", vesselStartX + vesselLen / 2, chainY);
 
-        const chainY2 = elasticY + maxDeformR + 14;
+        const chainY2 = elasticY + (Math.round(baseR * 1.75) + wallT) + 14;
         ctx.fillStyle = "#5dade2";
         ctx.fillText("↑ Distensibility → Energy absorbed → ↓ PWV", vesselStartX + vesselLen / 2, chainY2);
       }
