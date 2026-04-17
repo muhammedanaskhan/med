@@ -464,52 +464,45 @@ function VesselSlide() {
 const pathwaySteps = [
   {
     num: "1",
-    title: "Arterial Stiffness Increases",
+    title: "Arterial stiffness increases",
     detail:
-      "Vascular aging, hypertension, and metabolic risk factors reduce arterial compliance. The vessel wall becomes rigid with loss of elastin and increased collagen/calcification.",
+      "Vascular aging, hypertension, and metabolic risk factors reduce arterial compliance. The vessel wall loses elastin and accumulates collagen and calcium.",
     color: "#e63946",
-    image: "/vessel-cross-section.png",
-    imageAlt: "Stiffened vessel cross-section with plaque",
   },
   {
     num: "2",
-    title: "Early Wave Reflection",
+    title: "Pulse wave velocity increases → earlier wave reflection",
     detail:
-      "The pressure wave reaches peripheral resistance sites faster in a stiff vessel. Maximum resistance is met earlier, so the reflected wave returns sooner toward the heart.",
+      "In a stiff vessel, PWV rises. The pulse wave reaches peripheral resistance sites faster, so the reflected wave returns to the heart earlier — during diastole rather than systole.",
     color: "#f4a261",
   },
   {
     num: "3",
-    title: "Reflected Wave Returns During Diastole",
+    title: "Augmented LV afterload → impaired diastolic relaxation",
     detail:
-      "In healthy arteries, the reflected wave arrives during systole (contraction) and assists coronary perfusion. In stiff arteries, it arrives during diastole (relaxation), augmenting late systolic pressure.",
+      "The early-returning wave augments late systolic pressure, increasing LV wall stress. The LV cannot relax efficiently during diastole, raising end-diastolic filling pressure.",
     color: "#2a9d8f",
   },
   {
     num: "4",
-    title: "Impaired LV Relaxation → LA Pressure ↑",
+    title: "Elevated LV filling pressure → left atrial stretch",
     detail:
-      "The left ventricle (LV) relaxes less efficiently under augmented pressure. Less blood flows from the left atrium (LA) to the LV during diastole, increasing blood retention and chronic pressure/stretch on the LA.",
+      "Chronically elevated LV end-diastolic pressure is back-transmitted to the left atrium, causing persistent wall stretch and mechanical stress on atrial myocytes.",
     color: "#457b9d",
   },
   {
     num: "5",
-    title: "LA Remodeling & Fibrosis",
+    title: "LA remodeling and fibrosis",
     detail:
-      "Chronic pressure overload causes the left atrium to dilate and undergo structural remodeling. Fibroblasts deposit excess collagen, creating a fibrotic substrate that disrupts normal electrical conduction.",
+      "Chronic stretch activates fibroblasts, depositing excess collagen. Myocyte hypertrophy, fibrosis, and abnormal calcium handling disrupt uniform electrical conduction.",
     color: "#9b5de5",
-    image: "/la-fibrosis.png",
-    imageAlt: "Left atrial fibrosis — detection and treatment",
   },
   {
     num: "6",
-    title: "Ectopic Foci → Atrial Fibrillation",
+    title: "Ectopic foci and re-entry circuits → atrial fibrillation",
     detail:
-      "Fibrotic tissue creates re-entry circuits and triggers abnormal electrical activity (ectopic foci). The result is the chaotic, irregular atrial contraction characteristic of AF.",
+      "Fibrotic tissue creates islands of slowed conduction. Re-entrant circuits stabilize and ectopic triggers — often from pulmonary vein ostia — initiate chaotic, self-sustaining atrial activation.",
     color: "#e63946",
-    image: "/normal-vs-af.png",
-    imageAlt: "Normal sinus rhythm vs atrial fibrillation",
-    hasVideo: true,
     hasECG: true,
   },
 ];
@@ -611,37 +604,207 @@ function PathwayCard({
       <p className="text-[11px] text-[rgba(232,232,240,0.42)] leading-relaxed pl-7">
         {step.detail}
       </p>
-      {/* Thumbnail image */}
-      {step.image && (
-        <div className="mt-1.5 pl-7">
-          <img
-            src={step.image}
-            alt={step.imageAlt}
-            className="w-full max-w-[140px] h-auto rounded-md border border-[rgba(255,255,255,0.06)] opacity-80"
-          />
-        </div>
-      )}
-      {/* Video for AF step */}
-      {step.hasVideo && (
-        <div className="mt-1.5 pl-7">
-          <video
-            src="/What_is_Atrial_Fibrillation_Chapter_1_HRS_Patient_Video.mp4"
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="w-full max-w-[140px] h-auto rounded-md border border-[rgba(255,255,255,0.06)] opacity-70"
-          />
-        </div>
-      )}
-      {/* ECG strip for AF step */}
-      {step.hasECG && (
-        <div className="mt-1.5 pl-7 max-w-[160px] opacity-50">
-          <ECGLine />
-        </div>
-      )}
+      {/* Step-specific illustrations */}
+      <div className="mt-2 pl-7">
+        <PathwayIllustration stepNum={step.num} color={step.color} />
+      </div>
     </div>
   );
+}
+
+function PathwayIllustration({ stepNum, color }: { stepNum: string; color: string }) {
+  switch (stepNum) {
+    case "1":
+      // Healthy artery vs Stiff artery - matching reference style
+      return (
+        <div className="flex items-center gap-6 p-4 rounded-xl bg-[rgba(245,240,235,0.03)] mt-3">
+          {/* Healthy artery */}
+          <div className="flex-1">
+            <div className="text-[12px] text-[rgba(232,232,240,0.7)] mb-2 font-semibold text-center">Healthy artery</div>
+            <svg viewBox="0 0 180 45" className="w-full h-[40px]">
+              {/* Outer vessel wall */}
+              <rect x="5" y="8" width="170" height="30" rx="15" fill="#d4a5a5" stroke="#c99999" strokeWidth="1" />
+              {/* Inner lumen - light pink */}
+              <rect x="12" y="14" width="156" height="18" rx="9" fill="#f5e6e6" />
+              {/* Label */}
+              <text x="90" y="26" textAnchor="middle" fill="#b08080" fontSize="11" fontStyle="italic">elastic wall</text>
+            </svg>
+          </div>
+          <span className="text-[rgba(232,232,240,0.5)] text-xl">→</span>
+          {/* Stiff artery */}
+          <div className="flex-1">
+            <div className="text-[12px] text-[rgba(232,232,240,0.7)] mb-2 font-semibold text-center">Stiff artery</div>
+            <svg viewBox="0 0 180 45" className="w-full h-[40px]">
+              {/* Outer vessel wall - darker/stiffer */}
+              <rect x="5" y="8" width="170" height="30" rx="15" fill="#8b5a5a" stroke="#6b4040" strokeWidth="2" />
+              {/* Inner lumen */}
+              <rect x="12" y="14" width="156" height="18" rx="9" fill="#e8d4d4" />
+              {/* Label */}
+              <text x="90" y="26" textAnchor="middle" fill="#6b4040" fontSize="10" fontStyle="italic">rigid, calcified wall</text>
+            </svg>
+          </div>
+        </div>
+      );
+
+    case "2":
+      // Wave reflection timing - matching reference style
+      return (
+        <div className="p-4 rounded-xl bg-[rgba(245,240,235,0.03)] mt-3 space-y-4">
+          {/* Healthy row */}
+          <div className="flex items-center gap-4">
+            <span className="text-[13px] text-[#2a9d8f] w-16 font-semibold">Healthy</span>
+            <div className="flex-1 flex items-center">
+              <svg viewBox="0 0 200 20" className="flex-1 h-[20px]">
+                {/* Line */}
+                <line x1="0" y1="10" x2="100" y2="10" stroke="rgba(232,232,240,0.2)" strokeWidth="1" />
+                {/* Arrow */}
+                <polygon points="100,10 90,5 90,15" fill="#2a9d8f" />
+              </svg>
+              <span className="text-[12px] text-[#2a9d8f] ml-2">returns in systole ✓</span>
+            </div>
+          </div>
+          {/* Stiff row */}
+          <div className="flex items-center gap-4">
+            <span className="text-[13px] w-16 font-semibold" style={{ color }}>Stiff</span>
+            <div className="flex-1 flex items-center">
+              <svg viewBox="0 0 100 20" className="w-20 h-[20px]">
+                {/* Line */}
+                <line x1="0" y1="10" x2="85" y2="10" stroke={color} strokeWidth="2" />
+                {/* Arrow */}
+                <polygon points="85,10 75,5 75,15" fill={color} />
+              </svg>
+              <span className="text-[12px] ml-2" style={{ color }}>returns early → during diastole ✗</span>
+            </div>
+          </div>
+        </div>
+      );
+
+    case "3":
+      // LV pressure curve - matching reference exactly (peak slopes down)
+      return (
+        <div className="p-4 rounded-xl bg-[rgba(99,102,241,0.04)] mt-3">
+          <svg viewBox="0 0 320 70" className="w-full h-[65px]">
+            {/* Label positioned above the sloping peak */}
+            <text x="160" y="10" textAnchor="middle" fill="#6366f1" fontSize="11" fontWeight="500">augmented late systolic load</text>
+
+            {/* The pressure curve: flat → sharp rise → HIGH peak → slopes down → steeper drop → flat */}
+            <path
+              d="M 5 55 L 80 55 L 100 55 L 125 15 L 175 28 L 215 48 L 260 55 L 315 55"
+              fill="none"
+              stroke="#6366f1"
+              strokeWidth="2"
+            />
+
+            {/* Baseline */}
+            <line x1="5" y1="58" x2="315" y2="58" stroke="rgba(99,102,241,0.15)" strokeWidth="1" />
+          </svg>
+        </div>
+      );
+
+    case "4":
+      // LV → LA pressure transmission - matching reference style (blue ovals with dashed arrow)
+      return (
+        <div className="p-4 rounded-xl bg-[rgba(245,240,235,0.03)] mt-3">
+          <div className="flex items-center justify-center gap-2">
+            {/* LV oval */}
+            <svg viewBox="0 0 90 50" className="w-20 h-[45px]">
+              <ellipse cx="45" cy="25" rx="40" ry="20" fill="none" stroke="#6366f1" strokeWidth="2" />
+              <text x="45" y="22" textAnchor="middle" fill="#6366f1" fontSize="14" fontWeight="600">LV</text>
+              <text x="45" y="34" textAnchor="middle" fill="#6366f1" fontSize="9">↑ pressure</text>
+            </svg>
+
+            {/* Dashed arrow with label */}
+            <div className="flex flex-col items-center">
+              <span className="text-[10px] text-[#6366f1] mb-1">back-transmitted</span>
+              <svg viewBox="0 0 80 20" className="w-20 h-[18px]">
+                <line x1="0" y1="10" x2="65" y2="10" stroke="#6366f1" strokeWidth="2" strokeDasharray="6,4" />
+                <polygon points="78,10 65,4 65,16" fill="#6366f1" />
+              </svg>
+            </div>
+
+            {/* LA oval */}
+            <svg viewBox="0 0 90 50" className="w-20 h-[45px]">
+              <ellipse cx="45" cy="25" rx="40" ry="20" fill="none" stroke="#6366f1" strokeWidth="2" strokeDasharray="4,3" />
+              <text x="45" y="22" textAnchor="middle" fill="#6366f1" fontSize="14" fontWeight="600">LA</text>
+              <text x="45" y="34" textAnchor="middle" fill="#6366f1" fontSize="9">↑ stretch</text>
+            </svg>
+
+            {/* Double arrow */}
+            <span className="text-[20px] text-[#6366f1] ml-2">↔</span>
+          </div>
+        </div>
+      );
+
+    case "5":
+      // Normal LA vs Remodeled LA - matching reference style (green ovals)
+      return (
+        <div className="flex items-center gap-6 p-4 rounded-xl bg-[rgba(245,240,235,0.03)] mt-3">
+          {/* Normal LA */}
+          <div className="flex-1 flex flex-col items-center">
+            <svg viewBox="0 0 120 70" className="w-24 h-[60px]">
+              <ellipse cx="60" cy="30" rx="50" ry="25" fill="rgba(42,157,143,0.08)" stroke="#2a9d8f" strokeWidth="2" />
+              <text x="60" y="28" textAnchor="middle" fill="#2a9d8f" fontSize="12" fontWeight="600">Normal LA</text>
+              <text x="60" y="42" textAnchor="middle" fill="#2a9d8f" fontSize="9" opacity="0.8">uniform conduction</text>
+            </svg>
+          </div>
+
+          <span className="text-[rgba(232,232,240,0.5)] text-xl">→</span>
+
+          {/* Remodeled LA */}
+          <div className="flex-1 flex flex-col items-center">
+            <svg viewBox="0 0 140 80" className="w-28 h-[70px]">
+              <ellipse cx="70" cy="35" rx="60" ry="30" fill="rgba(42,157,143,0.15)" stroke="#1a7268" strokeWidth="2.5" />
+              <text x="70" y="28" textAnchor="middle" fill="#1a7268" fontSize="12" fontWeight="600">Remodeled LA</text>
+              <text x="70" y="42" textAnchor="middle" fill="#1a7268" fontSize="8">fibrosis · ↑ collagen</text>
+              <text x="70" y="54" textAnchor="middle" fill="#1a7268" fontSize="8">heterogeneous substrate</text>
+            </svg>
+          </div>
+        </div>
+      );
+
+    case "6":
+      // ECG transition to AF - matching reference style (Normal sinus narrower, AF wider)
+      return (
+        <div className="p-4 rounded-xl bg-[rgba(245,240,235,0.04)] mt-3">
+          <div className="text-[10px] text-[rgba(232,232,240,0.5)] mb-3 tracking-widest font-medium">ECG — TRANSITION TO ATRIAL FIBRILLATION</div>
+          <svg viewBox="0 0 450 85" className="w-full h-[75px]">
+            {/* Normal sinus rhythm - shorter section (about 20% of width) */}
+            <path
+              d="M 5 45 L 12 45 L 15 42 L 18 45 L 22 45 L 25 18 L 28 62 L 31 45 L 38 45 L 41 42 L 44 45
+                 L 50 45 L 53 18 L 56 62 L 59 45 L 68 45 L 71 42 L 74 45 L 80 45"
+              fill="none"
+              stroke="#2a9d8f"
+              strokeWidth="2"
+            />
+            <text x="42" y="78" textAnchor="middle" fill="#2a9d8f" fontSize="10" fontWeight="500">Normal sinus</text>
+
+            {/* Transition line */}
+            <line x1="90" y1="18" x2="90" y2="62" stroke="rgba(232,232,240,0.3)" strokeWidth="1" strokeDasharray="4,4" />
+
+            {/* Atrial fibrillation - much wider section (about 80% of width) with irregular rhythm */}
+            <path
+              d="M 100 45 L 105 42 L 110 48 L 115 44 L 118 46 L 122 18 L 126 62 L 130 45
+                 L 135 43 L 140 47 L 145 44 L 150 48 L 154 42 L 158 18 L 162 61 L 166 45
+                 L 170 43 L 175 47 L 180 44 L 185 46 L 190 43 L 194 18 L 198 62 L 202 45
+                 L 206 42 L 211 48 L 216 44 L 220 47 L 224 18 L 228 61 L 232 45
+                 L 236 43 L 241 47 L 246 44 L 250 46 L 255 42 L 259 18 L 263 62 L 267 45
+                 L 271 44 L 276 47 L 281 43 L 285 48 L 289 18 L 293 61 L 297 45
+                 L 301 43 L 306 47 L 311 44 L 315 46 L 320 42 L 324 18 L 328 62 L 332 45
+                 L 336 44 L 341 47 L 346 43 L 350 48 L 354 42 L 358 18 L 362 61 L 366 45
+                 L 370 43 L 375 47 L 380 44 L 384 46 L 388 18 L 392 62 L 396 45
+                 L 400 44 L 405 47 L 410 43 L 415 48 L 420 45 L 430 45 L 445 45"
+              fill="none"
+              stroke="#2a9d8f"
+              strokeWidth="2"
+            />
+            <text x="280" y="78" textAnchor="middle" fill="#2a9d8f" fontSize="10" fontWeight="500">Atrial fibrillation</text>
+          </svg>
+        </div>
+      );
+
+    default:
+      return null;
+  }
 }
 
 function PathwayArrow() {
