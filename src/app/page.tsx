@@ -12,7 +12,6 @@ const VesselAnimation = dynamic(
 
 const SLIDES = [
   { id: "cover", label: "Cover" },
-  { id: "background", label: "Background" },
   { id: "vessel", label: "PWV Basics" },
   { id: "pathway", label: "AS → AF" },
   { id: "evidence", label: "Evidence" },
@@ -293,14 +292,13 @@ export default function Home() {
             className="absolute inset-0"
           >
             {current === 0 && <CoverSlide />}
-            {current === 1 && <BackgroundSlide />}
-            {current === 2 && <VesselSlide />}
-            {current === 3 && <PathwaySlide />}
-            {current === 4 && <EvidenceSlide />}
-            {current === 5 && <TableSlide />}
-            {current === 6 && <FAQSlide />}
-            {current === 7 && <SourcesSlide />}
-            {current === 8 && <ConclusionsSlide />}
+            {current === 1 && <VesselSlide />}
+            {current === 2 && <PathwaySlide />}
+            {current === 3 && <EvidenceSlide />}
+            {current === 4 && <TableSlide />}
+            {current === 5 && <FAQSlide />}
+            {current === 6 && <SourcesSlide />}
+            {current === 7 && <ConclusionsSlide />}
           </motion.div>
         </AnimatePresence>
       ) : (
@@ -421,137 +419,7 @@ function CoverSlide() {
 }
 
 /* ================================================================
-   SLIDE 1 — BACKGROUND & METHODS
-   ================================================================ */
-function BackgroundSlide() {
-  return (
-    <div className="h-full overflow-y-auto slide-scroll">
-      <div className="min-h-full flex items-center px-5 md:px-6 lg:px-14 py-10 md:py-0 relative">
-        <div
-          className="absolute inset-0 opacity-[0.025]"
-          style={{
-            backgroundImage: "radial-gradient(rgba(69,123,157,0.6) 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-
-        <div className="relative z-10 w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10 lg:gap-16 items-start">
-          {/* Left: Background */}
-          <div>
-            <div className="flex items-center gap-3 mb-4 md:mb-6">
-              <div className="w-1 h-6 md:h-8 rounded-full bg-gradient-to-b from-[#e63946] to-[#457b9d]" />
-              <h2 className="text-xl md:text-3xl font-bold text-[rgba(232,232,240,0.95)]">
-                Background
-              </h2>
-            </div>
-
-            <div className="space-y-2.5 md:space-y-3">
-              <div className="p-3 md:p-4 rounded-xl bg-[rgba(230,57,70,0.03)] border border-[rgba(230,57,70,0.1)]">
-                <h3 className="font-semibold text-[#e63946] text-xs md:text-sm mb-1">Atrial Fibrillation</h3>
-                <p className="text-[13px] text-[rgba(232,232,240,0.5)] leading-relaxed">
-                  Most common sustained arrhythmia worldwide (&gt;50M people), associated with
-                  increased risk of stroke, heart failure, and mortality.
-                </p>
-              </div>
-
-              <div className="p-3 md:p-4 rounded-xl bg-[rgba(69,123,157,0.03)] border border-[rgba(69,123,157,0.1)]">
-                <h3 className="font-semibold text-[#457b9d] text-xs md:text-sm mb-1">Arterial Stiffness & PWV</h3>
-                <p className="text-[13px] text-[rgba(232,232,240,0.5)] leading-relaxed">
-                  Arterial stiffness reflects vascular aging and cumulative cardiovascular risk.
-                  PWV is the gold-standard noninvasive measure.
-                </p>
-              </div>
-
-              <div className="p-3 md:p-4 rounded-xl bg-[rgba(42,157,143,0.03)] border border-[rgba(42,157,143,0.1)]">
-                <h3 className="font-semibold text-[#2a9d8f] text-xs md:text-sm mb-1">The Knowledge Gap</h3>
-                <p className="text-[13px] text-[rgba(232,232,240,0.5)] leading-relaxed">
-                  The clinical role of PWV across the spectrum of AF remains unclear — this review
-                  evaluates its significance across prediction, association, and management.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Objective + Methods */}
-          <div>
-            <div className="flex items-center gap-3 mb-4 md:mb-6">
-              <div className="w-1 h-6 md:h-8 rounded-full bg-gradient-to-b from-[#457b9d] to-[#2a9d8f]" />
-              <h2 className="text-xl md:text-3xl font-bold text-[rgba(232,232,240,0.95)]">
-                Study Design
-              </h2>
-            </div>
-
-            <div className="mb-5 md:mb-8">
-              <h4 className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[rgba(232,232,240,0.3)] mb-2 md:mb-3">
-                Objective
-              </h4>
-              <ul className="space-y-1 md:space-y-1.5">
-                {[
-                  "Prediction of incident AF",
-                  "Association with established AF",
-                  "AF burden, recurrence, and progression",
-                  "Post-operative AF risk stratification",
-                  "Clinical outcomes and prognosis",
-                  "PWV and cardiovascular risk factors",
-                  "Clinical utility for risk stratification",
-                ].map((item, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-[13px] text-[rgba(232,232,240,0.5)]"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#457b9d] mt-[4px] flex-shrink-0" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[rgba(232,232,240,0.3)] mb-3">
-                PRISMA Flow
-              </h4>
-              <div className="flex items-start gap-1.5 md:gap-2">
-                {[
-                  { num: "01", title: "Identification", sub: "Database search", color: "#457b9d" },
-                  { num: "02", title: "Screening", sub: "Title & abstract", color: "#a8dadc" },
-                  { num: "03", title: "Eligibility", sub: "Full-text review", color: "#2a9d8f" },
-                  { num: "04", title: "Inclusion", sub: "Final studies", color: "#e63946" },
-                ].map((step, i) => (
-                  <Fragment key={i}>
-                    <div
-                      className="flex-1 p-2 md:p-3 rounded-xl text-center"
-                      style={{
-                        background: `${step.color}08`,
-                        border: `1px solid ${step.color}18`,
-                      }}
-                    >
-                      <span
-                        className="text-[12px] font-mono font-bold block"
-                        style={{ color: step.color }}
-                      >
-                        {step.num}
-                      </span>
-                      <span className="text-[12px] font-semibold text-[rgba(232,232,240,0.65)] block mt-0.5">
-                        {step.title}
-                      </span>
-                      <span className="text-[10px] text-[rgba(232,232,240,0.25)] hidden sm:inline">{step.sub}</span>
-                    </div>
-                    {i < 3 && (
-                      <span className="text-[rgba(232,232,240,0.1)] text-xs md:text-sm mt-3 md:mt-4 flex-shrink-0">→</span>
-                    )}
-                  </Fragment>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ================================================================
-   SLIDE 2 — VESSEL DYNAMICS
+   SLIDE 1 — VESSEL DYNAMICS
    ================================================================ */
 function VesselSlide() {
   return (
