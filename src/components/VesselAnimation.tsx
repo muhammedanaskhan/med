@@ -179,7 +179,7 @@ export default function VesselAnimation({
           const seg = Math.max(0, Math.min(Math.floor(frac * numPts), numPts));
           const ir = getInnerR(seg);
           const or_ = ir + wallThick;
-          wallPts.push([sx, centerY - or_ - 5 * scale]);
+          wallPts.push([sx, centerY]);
         }
 
         const cumArc: number[] = [0];
