@@ -307,24 +307,6 @@ export default function VesselAnimation({
         }
       }
 
-      // Elastic: expansion/compression arrows (skip on very small screens)
-      if (!isStiff && scale > 0.45) {
-        for (let n = 0; n < 3; n++) {
-          const progress = (n + 0.5) / 3;
-          const i = Math.floor(progress * numPts);
-          const x = x1 + progress * length;
-          const ir = getInnerR(i);
-          const or_ = ir + wallThick;
-
-          if (ir > baseInnerR * 1.2) {
-            drawExpansionArrow(ctx, x, centerY - or_ - 6 * scale, true, scale);
-            drawExpansionArrow(ctx, x, centerY + or_ + 6 * scale, false, scale);
-          } else if (ir < baseInnerR * 0.8) {
-            drawCompressionArrow(ctx, x, centerY - or_ - 2 * scale, false, scale);
-            drawCompressionArrow(ctx, x, centerY + or_ + 2 * scale, true, scale);
-          }
-        }
-      }
     },
     []
   );
