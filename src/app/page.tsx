@@ -12,7 +12,7 @@ const VesselAnimation = dynamic(
 
 const SLIDES = [
   { id: "cover", label: "Cover" },
-  { id: "vessel", label: "PWV Basics" },
+  { id: "vessel", label: "PWV & Arterial Stiffness" },
   { id: "pathway", label: "Arterial Stiffness → AF" },
   { id: "evidence", label: "Evidence" },
   { id: "table", label: "Table" },
