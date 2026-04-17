@@ -14,7 +14,7 @@ const SLIDES = [
   { id: "cover", label: "Cover" },
   { id: "vessel", label: "PWV & Arterial Stiffness" },
   { id: "pathway", label: "Arterial Stiffness → AF" },
-  { id: "evidence", label: "Evidence" },
+  { id: "evidence", label: "Results" },
   { id: "table", label: "Table" },
   { id: "faq", label: "FAQ" },
   { id: "sources", label: "Sources" },
@@ -666,10 +666,10 @@ function EvidenceSlide() {
             <div className="w-1 h-6 md:h-8 rounded-full bg-gradient-to-b from-[#e63946] to-[#a8dadc]" />
             <div>
               <h2 className="text-lg md:text-2xl font-bold text-[rgba(232,232,240,0.95)]">
-                Evidence Summary
+                Results Summary
               </h2>
               <p className="text-[11px] text-[rgba(232,232,240,0.25)] tracking-wider uppercase">
-                Results & Discussion — click a section to expand
+                Click a section to expand
               </p>
             </div>
           </div>
