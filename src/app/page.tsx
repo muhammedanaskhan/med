@@ -346,8 +346,7 @@ function CoverSlide() {
 
           {/* Supplemental note */}
           <p className="mt-4 md:mt-5 text-[12px] text-[rgba(232,232,240,0.32)] leading-relaxed max-w-lg mx-auto">
-            This website is a supplemental academic companion to the poster presented at the
-            Heart of the City Cardiovascular Symposium (Cleveland Clinic Florida). It is intended
+            This website is a supplemental academic companion to the poster presented. It is intended
             to provide expanded mechanistic context, supporting evidence, and anticipated
             discussion points for viewers who wish to explore the topic in greater depth. It is
             best experienced alongside the printed poster.
