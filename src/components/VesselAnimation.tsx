@@ -26,6 +26,10 @@ export default function VesselAnimation({
     cycleTimer: 0,
     paused: false,
     pauseTimer: 0,
+    // Track energy emission arrows for elastic vessel
+    energyArrows: [] as { x: number; y: number; angle: number; birth: number; duration: number }[],
+    lastElasticPos: 0, // Track last position to detect transition crossings
+    passedTransitions: [] as number[], // Which transitions have been triggered this cycle
   });
 
   useEffect(() => {
@@ -47,7 +51,8 @@ export default function VesselAnimation({
       _time: number,
       isStiff: boolean,
       arrowProgress: number,
-      scale: number
+      scale: number,
+      cycleState?: typeof cycleRef.current
     ) => {
       const numPts = 300;
       const dx = length / numPts;
@@ -164,7 +169,7 @@ export default function VesselAnimation({
         ctx.fill();
       }
 
-      // Arrow traveling along the top vessel wall
+      // Arrow traveling through the vessel center
       if (arrowProgress > 0.01) {
         const arrowLen = 80 * scale;
         const headLen = 18 * scale;
@@ -173,13 +178,82 @@ export default function VesselAnimation({
 
         const sampleCount = 200;
         const wallPts: [number, number][] = [];
+        const radiusAtPt: number[] = [];
+
         for (let s = 0; s <= sampleCount; s++) {
           const frac = s / sampleCount;
           const sx = x1 + frac * length;
           const seg = Math.max(0, Math.min(Math.floor(frac * numPts), numPts));
           const ir = getInnerR(seg);
-          const or_ = ir + wallThick;
-          wallPts.push([sx, centerY - or_ - 5 * scale]);
+          wallPts.push([sx, centerY]);
+          radiusAtPt.push(ir);
+        }
+
+        // For elastic vessel: compute variable speed mapping
+        // Faster in bulged parts (larger ir), slower in narrow parts (smaller ir)
+        let effectivePosition = arrowProgress;
+
+        if (!isStiff && cycleState) {
+          // Compute speed weights: slower where radius is smaller
+          // weight = baseInnerR / ir (so narrow = high weight = slow)
+          const weights: number[] = [];
+          for (let s = 0; s < sampleCount; s++) {
+            const ir = radiusAtPt[s];
+            // Speed multiplier: when ir is larger, we want to move faster
+            // So weight (time spent) should be inversely proportional to ir
+            const speedWeight = baseInnerR / Math.max(ir, baseInnerR * 0.3);
+            weights.push(speedWeight);
+          }
+
+          // Compute cumulative weights (represents "time" to reach each point)
+          const cumWeights: number[] = [0];
+          for (let i = 0; i < weights.length; i++) {
+            cumWeights.push(cumWeights[i] + weights[i]);
+          }
+          const totalWeight = cumWeights[cumWeights.length - 1];
+
+          // Map linear time progress to position using weights
+          const targetWeight = arrowProgress * totalWeight;
+          let mappedFrac = 0;
+          for (let i = 1; i < cumWeights.length; i++) {
+            if (cumWeights[i] >= targetWeight) {
+              const segWeight = cumWeights[i] - cumWeights[i - 1];
+              const t = segWeight > 0 ? (targetWeight - cumWeights[i - 1]) / segWeight : 0;
+              mappedFrac = ((i - 1) + t) / sampleCount;
+              break;
+            }
+          }
+          if (targetWeight >= totalWeight) mappedFrac = 1;
+
+          effectivePosition = mappedFrac;
+
+          // Detect shrink points (narrowest parts) and spawn energy arrows
+          // wave = sin(progress * PI * 5), minimum (wave = -1) at progress ≈ 0.3, 0.7
+          // These are the actual shrink/narrow points where energy is absorbed
+          const transitionPoints = [0.3, 0.7];
+          const currentPos = effectivePosition;
+          const lastPos = cycleState.lastElasticPos;
+
+          for (const tp of transitionPoints) {
+            // Check if arrow just crossed this transition point
+            if (lastPos < tp && currentPos >= tp && !cycleState.passedTransitions.includes(tp)) {
+              cycleState.passedTransitions.push(tp);
+              // Spawn energy emission arrows at this position
+              const emitX = x1 + tp * length;
+              const emitY = centerY;
+              const arrowDuration = 1.4; // seconds to fade - slower for better visibility
+              // Top-right arrow (45 degrees up-right)
+              cycleState.energyArrows.push({
+                x: emitX, y: emitY, angle: -Math.PI / 4, birth: _time, duration: arrowDuration
+              });
+              // Bottom-right arrow (45 degrees down-right)
+              cycleState.energyArrows.push({
+                x: emitX, y: emitY, angle: Math.PI / 4, birth: _time, duration: arrowDuration
+              });
+            }
+          }
+
+          cycleState.lastElasticPos = currentPos;
         }
 
         const cumArc: number[] = [0];
@@ -190,7 +264,7 @@ export default function VesselAnimation({
         }
         const totalArc = cumArc[cumArc.length - 1];
 
-        const tipArc = arrowProgress * totalArc;
+        const tipArc = effectivePosition * totalArc;
         const tailArc = Math.max(0, tipArc - arrowLen);
 
         const getAtArc = (targetArc: number): { x: number; y: number; angle: number } => {
@@ -261,6 +335,54 @@ export default function VesselAnimation({
         ctx.arc(tip.x, tip.y, glowR, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+
+        // Draw energy emission arrows for elastic vessel
+        if (!isStiff && cycleState) {
+          const energyArrowLen = 40 * scale;
+          const energyHeadLen = 14 * scale;
+          const energyHeadW = 8 * scale;
+
+          // Filter out expired arrows and draw active ones
+          cycleState.energyArrows = cycleState.energyArrows.filter(arrow => {
+            const age = _time - arrow.birth;
+            if (age > arrow.duration) return false;
+
+            const progress = age / arrow.duration;
+            const alpha = 1 - progress; // Fade out
+            const distance = progress * energyArrowLen * 1.5; // Travel distance - slower movement
+
+            // Calculate arrow position (moving away from emission point)
+            const arrowX = arrow.x + Math.cos(arrow.angle) * distance;
+            const arrowY = arrow.y + Math.sin(arrow.angle) * distance;
+
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.95;
+
+            // Draw arrow shaft - same white style as main arrow
+            ctx.beginPath();
+            ctx.moveTo(arrow.x + Math.cos(arrow.angle) * 5, arrow.y + Math.sin(arrow.angle) * 5);
+            ctx.lineTo(arrowX - Math.cos(arrow.angle) * energyHeadLen * 0.5, arrowY - Math.sin(arrow.angle) * energyHeadLen * 0.5);
+            ctx.strokeStyle = "rgba(255,255,255,0.9)";
+            ctx.lineWidth = 3 * scale;
+            ctx.lineCap = "round";
+            ctx.stroke();
+
+            // Draw arrow head - same white style as main arrow
+            ctx.translate(arrowX, arrowY);
+            ctx.rotate(arrow.angle);
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-energyHeadLen, -energyHeadW);
+            ctx.lineTo(-energyHeadLen * 0.6, 0);
+            ctx.lineTo(-energyHeadLen, energyHeadW);
+            ctx.closePath();
+            ctx.fillStyle = "rgba(255,255,255,0.95)";
+            ctx.fill();
+
+            ctx.restore();
+            return true;
+          });
+        }
       }
 
       // Stiff: tapered end + reflection label
@@ -307,24 +429,6 @@ export default function VesselAnimation({
         }
       }
 
-      // Elastic: expansion/compression arrows (skip on very small screens)
-      if (!isStiff && scale > 0.45) {
-        for (let n = 0; n < 3; n++) {
-          const progress = (n + 0.5) / 3;
-          const i = Math.floor(progress * numPts);
-          const x = x1 + progress * length;
-          const ir = getInnerR(i);
-          const or_ = ir + wallThick;
-
-          if (ir > baseInnerR * 1.2) {
-            drawExpansionArrow(ctx, x, centerY - or_ - 6 * scale, true, scale);
-            drawExpansionArrow(ctx, x, centerY + or_ + 6 * scale, false, scale);
-          } else if (ir < baseInnerR * 0.8) {
-            drawCompressionArrow(ctx, x, centerY - or_ - 2 * scale, false, scale);
-            drawCompressionArrow(ctx, x, centerY + or_ + 2 * scale, true, scale);
-          }
-        }
-      }
     },
     []
   );
@@ -444,6 +548,10 @@ export default function VesselAnimation({
           c.stiffDone = false; c.elasticDone = false;
           c.stiffTime = 0; c.elasticTime = 0;
           c.cycleTimer = 0; c.paused = false; c.pauseTimer = 0;
+          // Reset elastic arrow state
+          c.energyArrows = [];
+          c.lastElasticPos = 0;
+          c.passedTransitions = [];
         }
       }
 
@@ -508,7 +616,7 @@ export default function VesselAnimation({
         ctx.strokeStyle = cg2; ctx.lineWidth = 5 * scale; ctx.stroke();
       }
 
-      drawVessel3D(ctx, vesselStartX, elasticY, vesselLen, baseR, wallT, t, false, c.elasticProgress, scale);
+      drawVessel3D(ctx, vesselStartX, elasticY, vesselLen, baseR, wallT, t, false, c.elasticProgress, scale, c);
 
       // ──── TIMERS ────
       if (!isMobile) {
