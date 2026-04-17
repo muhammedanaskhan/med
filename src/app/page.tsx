@@ -18,7 +18,6 @@ const SLIDES = [
   { id: "table", label: "Table" },
   { id: "faq", label: "FAQ" },
   { id: "sources", label: "Sources" },
-  { id: "conclusions", label: "Conclusions" },
 ];
 
 const evidenceSections = [
@@ -80,38 +79,6 @@ const evidenceSections = [
       "In a proof-of-concept interventional study (n = 34), cfPWV decreased significantly following successful cardioversion from AF to sinus rhythm (11.8 to 10.7 m/s), and PWV measurements demonstrated excellent reproducibility (intraclass correlation coefficient 0.89), supporting the reliability of PWV assessment in AF [43].",
       "In a longitudinal study evaluating anticoagulation therapy (n = 21), switching from warfarin to rivaroxaban was associated with significant reductions in both augmentation index and baPWV after 6 months (p = 0.03) [44].",
       "In a multicenter randomized controlled trial involving hemodialysis patients with AF (n = 132), PWV changes over 18 months did not differ significantly between anticoagulation treatment strategies (p = 0.29), indicating no measurable effect of anticoagulant choice on arterial stiffness in advanced vascular disease states [45].",
-    ],
-  },
-];
-
-const conclusionSections = [
-  {
-    title: "Clinical Significance",
-    color: "#e63946",
-    points: [
-      "Elevated PWV is consistently associated with AF, particularly in established disease or high cardiovascular risk.",
-      "Supports a mechanistic link between arterial stiffness, impaired ventricular–arterial coupling, and left atrial remodeling.",
-      "Central PWV demonstrates stronger associations than peripheral indices.",
-      "May reflect early atrial abnormalities preceding clinically overt AF.",
-    ],
-  },
-  {
-    title: "Clinical Interpretation",
-    color: "#457b9d",
-    points: [
-      "PWV is more informative as a prognostic marker than a predictor of incident AF.",
-      "Strongest associations in established AF, POAF, and high cardiovascular risk populations.",
-      "Incident AF relationship attenuated after adjustment for age, BP, and comorbidities.",
-      "Evidence suggests a bidirectional relationship between arterial stiffness and AF.",
-    ],
-  },
-  {
-    title: "Clinical Application",
-    color: "#2a9d8f",
-    points: [
-      "PWV may provide additional risk stratification alongside clinical risk scores and imaging markers.",
-      "Particularly useful in stress-related contexts such as POAF.",
-      "In medically managed AF, elevated PWV may identify patients at higher risk of recurrence.",
     ],
   },
 ];
@@ -298,7 +265,6 @@ export default function Home() {
             {current === 4 && <TableSlide />}
             {current === 5 && <FAQSlide />}
             {current === 6 && <SourcesSlide />}
-            {current === 7 && <ConclusionsSlide />}
           </motion.div>
         </AnimatePresence>
       ) : (
@@ -1174,86 +1140,3 @@ function SourcesSlide() {
   );
 }
 
-/* ================================================================
-   SLIDE 8 — CONCLUSIONS & CREDITS
-   ================================================================ */
-function ConclusionsSlide() {
-  return (
-    <div className="h-full overflow-y-auto slide-scroll">
-      <div className="min-h-full flex flex-col items-center justify-center px-5 md:px-6 lg:px-14 py-10 md:py-0 relative">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_50%_90%,rgba(69,123,157,0.03)_0%,transparent_60%)]" />
-
-        <div className="relative z-10 w-full max-w-7xl mx-auto">
-          <div className="text-center mb-5 md:mb-8">
-            <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-[rgba(232,232,240,0.25)] mb-1 md:mb-2">
-              Key Takeaways
-            </p>
-            <h2 className="text-xl md:text-3xl font-bold text-[rgba(232,232,240,0.95)]">
-              Conclusions
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-5 mb-6 md:mb-10">
-            {conclusionSections.map((section, i) => (
-              <div
-                key={i}
-                className="p-3.5 md:p-5 rounded-xl"
-                style={{
-                  background: `${section.color}04`,
-                  border: `1px solid ${section.color}12`,
-                  borderTop: `3px solid ${section.color}`,
-                }}
-              >
-                <h3
-                  className="font-semibold text-[13px] md:text-[14px] mb-2 md:mb-3"
-                  style={{ color: section.color }}
-                >
-                  {section.title}
-                </h3>
-                <ul className="space-y-2 md:space-y-2.5">
-                  {section.points.map((point, j) => (
-                    <li key={j} className="flex items-start gap-2">
-                      <span
-                        className="w-1 h-1 rounded-full mt-[6px] flex-shrink-0"
-                        style={{ background: section.color }}
-                      />
-                      <span className="text-[12px] text-[rgba(232,232,240,0.5)] leading-relaxed">
-                        {point}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center space-y-2 md:space-y-3 pb-8 md:pb-0">
-            <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.04)] text-[11px] text-[rgba(232,232,240,0.25)]">
-              Full reference list available in the original research poster
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-x-3 md:gap-x-4 gap-y-1">
-              {["NSU Florida", "Cleveland Clinic Florida", "Mount Sinai Medical Center"].map(
-                (inst, i) => (
-                  <span
-                    key={i}
-                    className="text-[12px] text-[rgba(232,232,240,0.25)]"
-                  >
-                    {inst}
-                    {i < 2 && (
-                      <span className="ml-2 md:ml-3 text-[rgba(232,232,240,0.08)]">·</span>
-                    )}
-                  </span>
-                )
-              )}
-            </div>
-
-            <p className="text-[11px] text-[rgba(232,232,240,0.12)]">
-              © {new Date().getFullYear()} · Nedjar, Kahook, Shah, Mihos, Kesselman
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
