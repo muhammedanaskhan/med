@@ -669,7 +669,7 @@ function EvidenceSlide() {
                 Results Summary
               </h2>
               <p className="text-[11px] text-[rgba(232,232,240,0.25)] tracking-wider uppercase">
-                Results & Discussion — click a section to expand
+                Click a section to expand
               </p>
             </div>
           </div>
